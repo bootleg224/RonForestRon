@@ -96,6 +96,8 @@ const styles = StyleSheet.create({
   row: {
     backgroundColor: colors.surface,
     borderRadius: radius.md,
+    borderWidth: 1,
+    borderColor: colors.hairline,
     padding: space.md,
     flexDirection: 'row',
     justifyContent: 'space-between',

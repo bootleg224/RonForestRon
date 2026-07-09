@@ -132,6 +132,8 @@ const styles = StyleSheet.create({
   card: {
     backgroundColor: colors.surface,
     borderRadius: radius.md,
+    borderWidth: 1,
+    borderColor: colors.hairline,
     padding: space.md,
     gap: space.sm,
   },

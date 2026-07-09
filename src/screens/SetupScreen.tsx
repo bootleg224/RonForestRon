@@ -161,6 +161,8 @@ const styles = StyleSheet.create({
   field: {
     backgroundColor: colors.surface,
     borderRadius: radius.md,
+    borderWidth: 1,
+    borderColor: colors.hairline,
     paddingVertical: space.md,
     paddingHorizontal: space.md,
     flexDirection: 'row',
@@ -203,19 +205,20 @@ const styles = StyleSheet.create({
   },
   segmented: {
     flexDirection: 'row',
-    backgroundColor: colors.bgElev,
-    borderRadius: radius.sm,
-    padding: 4,
-    gap: 4,
+    gap: space.xs,
   },
   segment: {
     flex: 1,
     paddingVertical: 12,
-    borderRadius: radius.sm - 2,
+    borderRadius: radius.sm,
+    borderWidth: 1,
+    borderColor: colors.hairline,
+    backgroundColor: colors.surface,
     alignItems: 'center',
   },
   segmentActive: {
     backgroundColor: colors.accent,
+    borderColor: colors.accent,
   },
   segmentText: {
     color: colors.textDim,

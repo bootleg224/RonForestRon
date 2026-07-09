@@ -26,6 +26,8 @@ const styles = StyleSheet.create({
   tile: {
     backgroundColor: colors.surface,
     borderRadius: radius.md,
+    borderWidth: 1,
+    borderColor: colors.hairline,
     paddingVertical: space.md,
     paddingHorizontal: space.md,
     flex: 1,

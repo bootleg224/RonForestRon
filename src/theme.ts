@@ -1,23 +1,26 @@
-// Central design tokens. Dark, high-contrast, minimal — readable outdoors in sun.
+// Central design tokens. "Editorial ink" — a light, high-contrast paper theme:
+// warm off-white surfaces, near-black ink, one coral accent. Built to stay
+// legible outdoors in direct sun.
 export const colors = {
-  bg: '#0A0E13',
-  bgElev: '#0F141B',
-  surface: '#161D26',
-  surfaceAlt: '#1F2833',
-  hairline: '#2A3441',
-  text: '#F4F7FA',
-  textDim: '#8595A6',
-  textFaint: '#5A6675',
-  accent: '#3DDC84', // "forest" green
-  accentDark: '#0E3D24',
-  // Pace-state colors (used boldly on the run-screen hero)
-  onTrack: '#3DDC84',
-  onTrackDark: '#0E3D24',
-  tooSlow: '#FFB020',
-  tooSlowDark: '#3D2A05',
-  tooFast: '#4EA8FF',
-  tooFastDark: '#0A2740',
-  danger: '#FF5C5C',
+  bg: '#F2EFE7', // warm paper — the page canvas
+  bgElev: '#F2EFE7', // sheets / segmented tracks (paper, so white cards read on top)
+  surface: '#FFFFFF', // cards, stat tiles, wheel band — the only true white
+  surfaceAlt: '#E2DCCE', // switch-off track, insets
+  hairline: '#E4DED0', // warm hairline for card borders
+  text: '#171410', // near-black warm ink
+  textDim: '#6F675A', // muted warm grey
+  textFaint: '#A49B89', // faint labels / far wheel rows
+  accent: '#E5432A', // coral — the one brand accent (GO, links, active segments)
+  accentDark: '#FBE3DC', // light coral tint
+  // Pace-state colors — tuned to read on light hero tints. On pace is calm ink;
+  // only speed-up (amber) and ease-up (blue) light up in color.
+  onTrack: '#1A1712',
+  onTrackDark: '#EAE5DA',
+  tooSlow: '#B25A09',
+  tooSlowDark: '#F7E7CE',
+  tooFast: '#1C5EA6',
+  tooFastDark: '#E0EAF6',
+  danger: '#1A1712', // STOP + errors — heavy ink, distinct from the coral accent
 };
 
 export const radius = {

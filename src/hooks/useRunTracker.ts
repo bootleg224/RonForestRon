@@ -35,6 +35,7 @@ const DEFAULT_STRIDE_M = 0.9; // meters/step until calibrated from GPS
 
 export type RunState = 'idle' | 'starting' | 'running' | 'error';
 export type LocationSource = 'foreground' | 'background' | null;
+export type PauseMode = 'none' | 'auto' | 'manual';
 
 export type RunMode = 'open' | 'time' | 'distance';
 export type RunPlan = {
@@ -55,6 +56,7 @@ export type RunStats = {
   gpsFixes: number;
   steps: number;
   paused: boolean;
+  pauseMode: PauseMode;
 };
 
 const EMPTY_STATS: RunStats = {
@@ -67,6 +69,7 @@ const EMPTY_STATS: RunStats = {
   gpsFixes: 0,
   steps: 0,
   paused: false,
+  pauseMode: 'none',
 };
 
 export function useRunTracker(onAutoComplete?: (final: RunStats) => void) {
@@ -83,9 +86,9 @@ export function useRunTracker(onAutoComplete?: (final: RunStats) => void) {
   const fixesRef = useRef(0);
   const finishingRef = useRef(false);
 
-  // Active-time bookkeeping (so auto-paused stretches don't count).
+  // Active-time bookkeeping (so paused stretches don't count).
   const pausedAccumMsRef = useRef(0);
-  const isPausedRef = useRef(false);
+  const pauseModeRef = useRef<PauseMode>('none');
   const pauseStartedAtRef = useRef(0);
 
   // Auto-pause movement tracking.
@@ -117,7 +120,7 @@ export function useRunTracker(onAutoComplete?: (final: RunStats) => void) {
   // Active elapsed ms — frozen while auto-paused.
   const activeElapsedMs = useCallback(() => {
     const now = Date.now();
-    const inPause = isPausedRef.current ? now - pauseStartedAtRef.current : 0;
+    const inPause = pauseModeRef.current !== 'none' ? now - pauseStartedAtRef.current : 0;
     return now - startedAtRef.current - pausedAccumMsRef.current - inPause;
   }, []);
 
@@ -128,6 +131,22 @@ export function useRunTracker(onAutoComplete?: (final: RunStats) => void) {
       pedActiveRef.current ? fusedDistRef.current : engineRef.current.totalDistance,
     [],
   );
+
+  // (Re)start the spoken pace-check timer so the next check lands one full
+  // interval from NOW — used on start and on resume, so pausing/resuming
+  // re-anchors the cadence instead of firing off the original start time.
+  const startCheckInterval = useCallback(() => {
+    if (checkRef.current) clearInterval(checkRef.current);
+    checkRef.current = setInterval(() => {
+      if (pauseModeRef.current !== 'none') return; // stay quiet while paused
+      const check = engineRef.current.evaluate(
+        targetRef.current,
+        settingsRef.current.coachingWindowSec,
+        activeElapsedMs(),
+      );
+      speak(check.spokenText);
+    }, settingsRef.current.promptIntervalSec * 1000);
+  }, [activeElapsedMs]);
 
   const teardown = useCallback(async () => {
     for (const r of [tickRef, currentRef, avgRef, checkRef]) {
@@ -147,24 +166,38 @@ export function useRunTracker(onAutoComplete?: (final: RunStats) => void) {
     deactivateKeepAwake(KEEP_AWAKE_TAG);
   }, []);
 
-  const pause = useCallback(() => {
-    if (isPausedRef.current) return;
-    isPausedRef.current = true;
-    pauseStartedAtRef.current = Date.now();
-    resumeAnchorRef.current = lastPosRef.current;
-    setStats((prev) => ({ ...prev, paused: true }));
-    speak('Auto-paused.');
+  const setPaused = useCallback((mode: 'auto' | 'manual') => {
+    // Converting auto -> manual keeps the same paused clock (just stops auto-resume).
+    if (pauseModeRef.current === 'none') {
+      pauseStartedAtRef.current = Date.now();
+      resumeAnchorRef.current = lastPosRef.current;
+    }
+    pauseModeRef.current = mode;
+    // Stop the pace-check cadence while paused; it re-anchors on resume.
+    if (checkRef.current) {
+      clearInterval(checkRef.current);
+      checkRef.current = null;
+    }
+    setStats((prev) => ({ ...prev, paused: true, pauseMode: mode }));
+    speak(mode === 'manual' ? 'Paused.' : 'Auto-paused.');
   }, []);
 
-  const resume = useCallback(() => {
-    if (!isPausedRef.current) return;
+  const doResume = useCallback(() => {
+    if (pauseModeRef.current === 'none') return;
     pausedAccumMsRef.current += Date.now() - pauseStartedAtRef.current;
-    isPausedRef.current = false;
+    pauseModeRef.current = 'none';
     resumeAnchorRef.current = null;
     distHistoryRef.current = []; // restart stop-detection after resuming
-    setStats((prev) => ({ ...prev, paused: false }));
+    startCheckInterval(); // next pace check is a full interval from resume
+    setStats((prev) => ({ ...prev, paused: false, pauseMode: 'none' }));
     speak('Resuming.');
-  }, []);
+  }, [startCheckInterval]);
+
+  // Manual pause button: none/auto -> manual (locks it), manual -> resume.
+  const togglePause = useCallback(() => {
+    if (pauseModeRef.current === 'manual') doResume();
+    else setPaused('manual');
+  }, [doResume, setPaused]);
 
   const finalize = useCallback(async (): Promise<RunStats | null> => {
     if (finishingRef.current) return null;
@@ -184,6 +217,7 @@ export function useRunTracker(onAutoComplete?: (final: RunStats) => void) {
       gpsFixes: fixesRef.current,
       steps: stepsRef.current,
       paused: false,
+      pauseMode: 'none',
     };
     setStats(final);
     setSource(null);
@@ -225,7 +259,7 @@ export function useRunTracker(onAutoComplete?: (final: RunStats) => void) {
 
   // Current pace + coaching color (refreshed every 10s; see start()).
   const refreshCurrent = useCallback(() => {
-    if (isPausedRef.current) return;
+    if (pauseModeRef.current !== 'none') return; // hold last value while paused
     const check = engineRef.current.evaluate(
       targetRef.current,
       settingsRef.current.coachingWindowSec,
@@ -278,14 +312,15 @@ export function useRunTracker(onAutoComplete?: (final: RunStats) => void) {
     updateFusedDistance();
     const distanceMeters = distanceNow();
 
-    // Auto-pause: pause once we've barely moved for PAUSE_AFTER_MS.
-    if (settingsRef.current.autoPause && !isPausedRef.current) {
+    // Auto-pause: pause once we've barely moved for PAUSE_AFTER_MS (only from a
+    // running state — never override a manual pause).
+    if (settingsRef.current.autoPause && pauseModeRef.current === 'none') {
       distHistoryRef.current.push({ t: now, d: distanceMeters });
       distHistoryRef.current = distHistoryRef.current.filter(
         (h) => h.t >= now - PAUSE_AFTER_MS - 2000,
       );
       const old = distHistoryRef.current.find((h) => h.t <= now - PAUSE_AFTER_MS);
-      if (old && distanceMeters - old.d < STOPPED_DIST_M) pause();
+      if (old && distanceMeters - old.d < STOPPED_DIST_M) setPaused('auto');
     }
 
     setStats((prev) => ({
@@ -294,7 +329,8 @@ export function useRunTracker(onAutoComplete?: (final: RunStats) => void) {
       distanceMeters,
       gpsFixes: fixesRef.current,
       steps: stepsRef.current,
-      paused: isPausedRef.current,
+      paused: pauseModeRef.current !== 'none',
+      pauseMode: pauseModeRef.current,
     }));
 
     // Seed the slower metrics as soon as we're moving, so nothing stays blank
@@ -310,7 +346,7 @@ export function useRunTracker(onAutoComplete?: (final: RunStats) => void) {
     distanceNow,
     updateFusedDistance,
     maybeAutoStop,
-    pause,
+    setPaused,
     refreshCurrent,
     refreshAverages,
   ]);
@@ -320,11 +356,17 @@ export function useRunTracker(onAutoComplete?: (final: RunStats) => void) {
       lastPosRef.current = { lat: sample.lat, lng: sample.lng };
       lastAccuracyRef.current = sample.accuracy;
 
-      if (isPausedRef.current) {
-        // While paused we keep receiving GPS only to detect that we've moved on.
-        const anchor = resumeAnchorRef.current;
-        if (anchor && haversineMeters(anchor.lat, anchor.lng, sample.lat, sample.lng) > RESUME_DIST_M) {
-          resume();
+      if (pauseModeRef.current !== 'none') {
+        // Only an AUTO pause resumes on movement; a manual pause holds until the
+        // user resumes (e.g. a walking break).
+        if (pauseModeRef.current === 'auto') {
+          const anchor = resumeAnchorRef.current;
+          if (
+            anchor &&
+            haversineMeters(anchor.lat, anchor.lng, sample.lat, sample.lng) > RESUME_DIST_M
+          ) {
+            doResume();
+          }
         }
         return;
       }
@@ -344,7 +386,7 @@ export function useRunTracker(onAutoComplete?: (final: RunStats) => void) {
       }
       recompute();
     },
-    [activeElapsedMs, recompute, resume],
+    [activeElapsedMs, recompute, doResume],
   );
 
   const start = useCallback(
@@ -366,7 +408,7 @@ export function useRunTracker(onAutoComplete?: (final: RunStats) => void) {
         finishingRef.current = false;
         seededRef.current = false;
         pausedAccumMsRef.current = 0;
-        isPausedRef.current = false;
+        pauseModeRef.current = 'none';
         distHistoryRef.current = [];
         lastPosRef.current = null;
         resumeAnchorRef.current = null;
@@ -413,15 +455,7 @@ export function useRunTracker(onAutoComplete?: (final: RunStats) => void) {
         tickRef.current = setInterval(recompute, TICK_MS);
         currentRef.current = setInterval(refreshCurrent, CURRENT_REFRESH_MS);
         avgRef.current = setInterval(refreshAverages, AVG_REFRESH_MS);
-        checkRef.current = setInterval(() => {
-          if (isPausedRef.current) return; // stay quiet while paused
-          const check = engineRef.current.evaluate(
-            targetRef.current,
-            settingsRef.current.coachingWindowSec,
-            activeElapsedMs(),
-          );
-          speak(check.spokenText);
-        }, settings.promptIntervalSec * 1000);
+        startCheckInterval(); // first pace check one interval from now
 
         setState('running');
         speak('Run started. Good luck.');
@@ -431,7 +465,14 @@ export function useRunTracker(onAutoComplete?: (final: RunStats) => void) {
         setError(e instanceof Error ? e.message : 'Failed to start run.');
       }
     },
-    [ingest, recompute, refreshCurrent, refreshAverages, activeElapsedMs, teardown],
+    [
+      ingest,
+      recompute,
+      refreshCurrent,
+      refreshAverages,
+      startCheckInterval,
+      teardown,
+    ],
   );
 
   const stop = useCallback(async (): Promise<RunStats | null> => {
@@ -444,5 +485,5 @@ export function useRunTracker(onAutoComplete?: (final: RunStats) => void) {
     };
   }, [teardown]);
 
-  return { state, error, stats, source, start, stop };
+  return { state, error, stats, source, start, stop, togglePause };
 }

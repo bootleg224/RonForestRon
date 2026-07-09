@@ -56,6 +56,8 @@ const styles = StyleSheet.create({
     left: 0,
     right: 0,
     borderRadius: radius.md,
+    borderWidth: 1,
+    borderColor: colors.hairline,
     backgroundColor: colors.surface,
   },
   row: {

@@ -32,7 +32,7 @@ export default function App() {
     setScreen('summary');
   }, []);
 
-  const { state, error, stats, start, stop } = useRunTracker(handleComplete);
+  const { state, error, stats, start, stop, togglePause } = useRunTracker(handleComplete);
 
   const [pace, setPace] = useState(540); // 9:00 /mi default
   const [mode, setMode] = useState<RunMode>('open');
@@ -111,7 +111,7 @@ export default function App() {
 
   return (
     <SafeAreaView style={styles.safe}>
-      <StatusBar style="light" />
+      <StatusBar style="dark" />
       {screen === 'setup' && (
         <SetupScreen
           pace={pace}
@@ -135,6 +135,7 @@ export default function App() {
           targetSecPerMile={pace}
           plan={runPlan}
           onStop={handleStop}
+          onTogglePause={togglePause}
         />
       )}
       {screen === 'summary' && finalStats && (

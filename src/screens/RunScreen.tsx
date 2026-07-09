@@ -12,6 +12,7 @@ type Props = {
   targetSecPerMile: number;
   plan: RunPlan;
   onStop: () => void;
+  onTogglePause: () => void;
 };
 
 const STATE_STYLE: Record<
@@ -43,14 +44,18 @@ export function RunScreen({
   targetSecPerMile,
   plan,
   onStop,
+  onTogglePause,
 }: Props) {
   const check = stats.check;
   const status: PaceCheckStatus = check?.status ?? 'no_signal';
   const paused = stats.paused;
-  const s = paused
-    ? { color: colors.textDim, bg: colors.surface, word: 'PAUSED' }
-    : STATE_STYLE[status];
+  // Keep the current pace showing as-is in its real color while paused; just
+  // badge it "PAUSED".
+  const s = STATE_STYLE[status];
   const pill = paused ? 'PAUSED' : pillText(status, s.word, check?.adjustPct ?? 0);
+  const pausedNote =
+    stats.pauseMode === 'manual' ? 'paused · tap resume' : 'auto-paused · move or resume';
+  const pauseLabel = stats.pauseMode === 'manual' ? 'RESUME' : 'PAUSE';
 
   // Time tile: counts down for a time goal, up otherwise.
   const timeLabel = plan.mode === 'time' ? 'Time left' : 'Time';
@@ -80,12 +85,12 @@ export function RunScreen({
         <Text style={styles.heroLabel}>CURRENT PACE</Text>
         <View style={styles.paceRow}>
           <Text style={[styles.pace, { color: s.color }]}>
-            {paused ? '--:--' : formatPace(stats.currentPace)}
+            {formatPace(stats.currentPace)}
           </Text>
           <Text style={[styles.paceUnit, { color: s.color }]}>/mi</Text>
         </View>
         <Text style={styles.reference}>
-          {paused ? 'auto-paused · move to resume' : `target ${formatPace(targetSecPerMile)}/mi`}
+          {paused ? pausedNote : `target ${formatPace(targetSecPerMile)}/mi`}
         </Text>
       </View>
 
@@ -104,12 +109,26 @@ export function RunScreen({
 
       {error ? <Text style={styles.error}>{error}</Text> : null}
 
-      <Pressable
-        onPress={onStop}
-        style={({ pressed }) => [styles.stop, pressed && styles.pressed]}
-      >
-        <Text style={styles.stopText}>STOP</Text>
-      </Pressable>
+      <View style={styles.controls}>
+        <Pressable
+          onPress={onTogglePause}
+          style={({ pressed }) => [
+            styles.pauseBtn,
+            paused && styles.pauseBtnActive,
+            pressed && styles.pressed,
+          ]}
+        >
+          <Text style={[styles.pauseText, paused && styles.pauseTextActive]}>
+            {pauseLabel}
+          </Text>
+        </Pressable>
+        <Pressable
+          onPress={onStop}
+          style={({ pressed }) => [styles.stop, pressed && styles.pressed]}
+        >
+          <Text style={styles.stopText}>STOP</Text>
+        </Pressable>
+      </View>
     </View>
   );
 }
@@ -139,6 +158,8 @@ const styles = StyleSheet.create({
   },
   hero: {
     borderRadius: radius.lg,
+    borderWidth: 1,
+    borderColor: colors.hairline,
     paddingVertical: space.lg,
     paddingHorizontal: space.lg,
     alignItems: 'center',
@@ -194,8 +215,36 @@ const styles = StyleSheet.create({
     color: colors.danger,
     textAlign: 'center',
   },
-  stop: {
+  controls: {
     marginTop: 'auto',
+    flexDirection: 'row',
+    gap: space.sm,
+  },
+  pauseBtn: {
+    flex: 1,
+    backgroundColor: colors.surface,
+    borderWidth: 1,
+    borderColor: colors.hairline,
+    borderRadius: radius.pill,
+    height: 80,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  pauseBtnActive: {
+    backgroundColor: colors.accent,
+    borderColor: colors.accent,
+  },
+  pauseText: {
+    color: colors.text,
+    fontSize: 22,
+    fontWeight: '900',
+    letterSpacing: 2,
+  },
+  pauseTextActive: {
+    color: colors.bg,
+  },
+  stop: {
+    flex: 1,
     backgroundColor: colors.danger,
     borderRadius: radius.pill,
     height: 80,
@@ -207,7 +256,7 @@ const styles = StyleSheet.create({
   },
   stopText: {
     color: colors.bg,
-    fontSize: 26,
+    fontSize: 24,
     fontWeight: '900',
     letterSpacing: 2,
   },
