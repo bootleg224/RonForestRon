@@ -20,6 +20,7 @@ import { RunScreen } from './src/screens/RunScreen';
 import { SummaryScreen } from './src/screens/SummaryScreen';
 import { HistoryScreen } from './src/screens/HistoryScreen';
 import { SettingsScreen } from './src/screens/SettingsScreen';
+import { cleanupStaleBackgroundTask } from './src/lib/location';
 
 type Screen = 'setup' | 'run' | 'summary' | 'history' | 'settings';
 
@@ -42,6 +43,9 @@ export default function App() {
   const [runPlan, setRunPlan] = useState<RunPlan>(OPEN_PLAN);
 
   useEffect(() => {
+    // Fresh launch: no run is active in this session, so clear any background
+    // location task left registered by a previous crash/kill.
+    cleanupStaleBackgroundTask();
     getSettings().then(setSettings).catch(() => {});
   }, []);
 

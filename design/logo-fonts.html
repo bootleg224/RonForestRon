@@ -1,0 +1,115 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>RFR logo — font explorer</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@600;700&family=Oswald:wght@500;600;700&family=Bebas+Neue&family=Anton&family=Fjalla+One&family=Archivo:wght@700;800&family=Archivo+Narrow:wght@700&family=Saira+Condensed:wght@600;700&family=Saira:wght@700&family=Teko:wght@600;700&family=Khand:wght@600;700&family=Rajdhani:wght@600;700&family=Kanit:wght@600;700&family=Staatliches&family=Big+Shoulders+Display:wght@700;800&family=Pathway+Gothic+One&family=Roboto+Condensed:wght@700&family=PT+Sans+Narrow:wght@700&family=Squada+One&family=Racing+Sans+One&family=Changa:wght@600;700&family=Titan+One&family=Passion+One:wght@700;900&family=Chakra+Petch:wght@600;700&family=Orbitron:wght@700&family=Exo+2:wght@700;800&family=League+Spartan:wght@700;800&family=Michroma&family=Sora:wght@700;800&family=Space+Grotesk:wght@600;700&display=swap" rel="stylesheet">
+<style>
+  :root { --paper:#F2EFE7; --coral:#E5432A; --ink:#171410; --dim:#6F675A; --hair:#E4DED0; }
+  * { box-sizing: border-box; }
+  body { margin:0; background:var(--paper); color:var(--ink);
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; }
+  header { position: sticky; top:0; z-index:10; background:rgba(242,239,231,.95);
+    backdrop-filter: blur(6px); border-bottom:1px solid var(--hair); padding:16px 22px; }
+  h1 { margin:0 0 4px; font-size:20px; font-weight:700; }
+  p.sub { margin:0 0 12px; font-size:13px; color:var(--dim); }
+  .controls { display:flex; flex-wrap:wrap; gap:18px; align-items:center; }
+  .controls label { font-size:12px; color:var(--dim); display:flex; gap:8px; align-items:center; }
+  input[type=text] { font-size:14px; padding:6px 10px; border:1px solid var(--hair);
+    border-radius:8px; background:#fff; width:90px; }
+  input[type=range] { width:150px; }
+  .seg { display:inline-flex; border:1px solid var(--hair); border-radius:8px; overflow:hidden; }
+  .seg button { border:0; background:#fff; padding:6px 12px; font-size:13px; cursor:pointer; color:var(--dim); }
+  .seg button.on { background:var(--coral); color:#fff; }
+  #grid { display:grid; grid-template-columns:repeat(auto-fill, minmax(300px,1fr));
+    gap:18px; padding:22px; }
+  .card { border:1px solid var(--hair); border-radius:16px; padding:16px 16px 10px; text-align:center; }
+  .card svg { width:100%; height:auto; max-width:300px; }
+  .name { margin-top:8px; font-size:13px; font-weight:600; }
+  .meta { font-size:11px; color:var(--dim); }
+</style>
+</head>
+<body>
+<header>
+  <h1>RFR logo — font explorer</h1>
+  <p class="sub">The real track mark, RFR set in open-source Google Fonts (all free for commercial use — OFL or Apache). Pick one and tell me the name.</p>
+  <div class="controls">
+    <label>Text <input id="txt" type="text" value="RFR" maxlength="5"></label>
+    <label>Size <input id="size" type="range" min="18" max="46" value="31"><span id="sizeval">31</span></label>
+    <label>Background
+      <span class="seg" id="bg">
+        <button data-bg="#F2EFE7" class="on">Paper</button>
+        <button data-bg="#FFFFFF">White</button>
+      </span>
+    </label>
+  </div>
+</header>
+
+<div id="grid"></div>
+
+<script>
+const FONTS = [
+  ["Barlow Condensed", 700], ["Oswald", 600], ["Bebas Neue", 400], ["Anton", 400],
+  ["Fjalla One", 400], ["Archivo", 800], ["Archivo Narrow", 700], ["Saira Condensed", 700],
+  ["Saira", 700], ["Teko", 700], ["Khand", 700], ["Rajdhani", 700], ["Kanit", 700],
+  ["Staatliches", 400], ["Big Shoulders Display", 800], ["Pathway Gothic One", 400],
+  ["Roboto Condensed", 700], ["PT Sans Narrow", 700], ["Squada One", 400],
+  ["Racing Sans One", 400], ["Changa", 700], ["Titan One", 400], ["Passion One", 900],
+  ["Chakra Petch", 700], ["Orbitron", 700], ["Exo 2", 800], ["League Spartan", 800],
+  ["Michroma", 400], ["Sora", 800], ["Space Grotesk", 700],
+];
+
+const grid = document.getElementById('grid');
+const txtEl = document.getElementById('txt');
+const sizeEl = document.getElementById('size');
+const sizeVal = document.getElementById('sizeval');
+let bg = '#F2EFE7';
+
+function svg(family, weight, size, text, infield) {
+  const C='#E5432A', W='#FFFFFF', INK='#171410';
+  return `<svg viewBox="0 0 200 100" xmlns="http://www.w3.org/2000/svg">
+    <rect x="5" y="5" width="190" height="90" rx="45" fill="${C}" stroke="${W}" stroke-width="1.3"/>
+    <rect x="11" y="11" width="178" height="78" rx="39" fill="none" stroke="${W}" stroke-width="1.3"/>
+    <rect x="17" y="17" width="166" height="66" rx="33" fill="none" stroke="${W}" stroke-width="1.3"/>
+    <rect x="23" y="23" width="154" height="54" rx="27" fill="none" stroke="${W}" stroke-width="1.3"/>
+    <rect x="92" y="5" width="2" height="6" fill="${W}"/>
+    <rect x="84" y="11" width="2" height="6" fill="${W}"/>
+    <rect x="76" y="17" width="2" height="6" fill="${W}"/>
+    <rect x="67" y="5" width="3" height="24" fill="${W}"/>
+    <rect x="29" y="29" width="142" height="42" rx="21" fill="${infield}" stroke="${W}" stroke-width="1.3"/>
+    <text x="100" y="50.5" text-anchor="middle" dominant-baseline="central"
+      font-family="'${family}', sans-serif" font-weight="${weight}" font-size="${size}"
+      letter-spacing="0.5" fill="${INK}">${text}</text>
+  </svg>`;
+}
+
+function render() {
+  const text = (txtEl.value || 'RFR').toUpperCase();
+  const size = +sizeEl.value;
+  sizeVal.textContent = size;
+  grid.innerHTML = FONTS.map(([name, weight]) => `
+    <div class="card" style="background:${bg}">
+      ${svg(name, weight, size, text, bg)}
+      <div class="name">${name}</div>
+      <div class="meta">weight ${weight}</div>
+    </div>`).join('');
+}
+
+document.getElementById('bg').addEventListener('click', (e) => {
+  const b = e.target.closest('button'); if (!b) return;
+  bg = b.dataset.bg;
+  [...e.currentTarget.children].forEach(c => c.classList.toggle('on', c === b));
+  render();
+});
+txtEl.addEventListener('input', render);
+sizeEl.addEventListener('input', render);
+
+// Re-render once fonts have loaded so metrics settle.
+render();
+if (document.fonts && document.fonts.ready) document.fonts.ready.then(render);
+</script>
+</body>
+</html>
