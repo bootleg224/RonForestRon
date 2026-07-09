@@ -92,3 +92,25 @@ export async function stopBackgroundUpdates(): Promise<void> {
     await Location.stopLocationUpdatesAsync(BACKGROUND_LOCATION_TASK);
   }
 }
+
+/**
+ * Stop any background location task left registered by a previous session that
+ * crashed or was killed mid-run. Safe to call on every app launch: at launch
+ * there is never an active run in this JS session, so a registered task is
+ * always stale. Best-effort — never lets cleanup crash startup.
+ */
+export async function cleanupStaleBackgroundTask(): Promise<void> {
+  try {
+    const started = await Location.hasStartedLocationUpdatesAsync(
+      BACKGROUND_LOCATION_TASK,
+    ).catch(() => false);
+    const registered = await TaskManager.isTaskRegisteredAsync(
+      BACKGROUND_LOCATION_TASK,
+    ).catch(() => false);
+    if (started || registered) {
+      await Location.stopLocationUpdatesAsync(BACKGROUND_LOCATION_TASK).catch(() => {});
+    }
+  } catch {
+    // ignore — a lingering task is not worth crashing the app over
+  }
+}

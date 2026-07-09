@@ -21,10 +21,7 @@ type Props = {
 export function SummaryScreen({ stats, onDone, units }: Props) {
   return (
     <View style={styles.container}>
-      <View style={styles.header}>
-        <Logo size={168} />
-        <Text style={styles.subtitle}>Nice run — saved to your history.</Text>
-      </View>
+      <Text style={styles.title}>Nice run — saved to your history.</Text>
 
       <View style={styles.grid}>
         <StatTile label="Time" value={formatClock(stats.elapsedSec)} />
@@ -48,6 +45,10 @@ export function SummaryScreen({ stats, onDone, units }: Props) {
         )}
       </View>
 
+      <View style={styles.logoWrap}>
+        <Logo size={132} />
+      </View>
+
       <Pressable
         onPress={onDone}
         style={({ pressed }) => [styles.button, pressed && styles.pressed]}
@@ -64,20 +65,20 @@ const styles = StyleSheet.create({
     padding: space.lg,
     gap: space.md,
   },
-  header: {
-    alignItems: 'center',
+  title: {
+    color: colors.accent,
+    fontSize: 22,
+    fontWeight: '800',
     marginTop: space.lg,
-    marginBottom: space.sm,
-  },
-  subtitle: {
-    color: colors.textDim,
-    textAlign: 'center',
-    fontSize: 16,
-    marginTop: 4,
+    marginBottom: space.xs,
   },
   grid: {
     flexDirection: 'row',
     gap: space.sm,
+  },
+  logoWrap: {
+    alignItems: 'center',
+    marginTop: space.sm,
   },
   button: {
     marginTop: 'auto',
