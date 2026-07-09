@@ -50,7 +50,7 @@ export function SetupScreen(props: Props) {
   const { goalDistanceMi, onGoalDistance, onStart, onHistory, onSettings } = props;
   const [sheet, setSheet] = useState<Sheet>(null);
   const { width } = useWindowDimensions();
-  const logoSize = Math.min(280, width - space.lg * 2);
+  const logoSize = Math.round(width * 0.9);
 
   const blurb = MODES.find((m) => m.key === mode)?.blurb ?? '';
   const goalValue =
@@ -165,6 +165,7 @@ const styles = StyleSheet.create({
   },
   header: {
     alignItems: 'center',
+    marginHorizontal: -space.lg, // full-bleed so the logo can span ~90% of screen width
     marginTop: space.md,
     marginBottom: space.xl,
   },

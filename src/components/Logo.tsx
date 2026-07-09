@@ -1,4 +1,4 @@
-import Svg, { Rect, Path } from 'react-native-svg';
+import Svg, { Rect, Path, G } from 'react-native-svg';
 import { colors } from '../theme';
 
 type Props = {
@@ -6,30 +6,36 @@ type Props = {
   size?: number;
 };
 
-// Six concentric lane lines (rounded "stadium" rects), a coral finish stripe
-// across the bottom straight, and an "RFR" monogram drawn as strokes so it
-// renders identically on every device regardless of installed fonts.
+// A top-down running track: a coral (track-surface) stadium band with white
+// lane lines, an infield that matches the app background so the track reads as
+// a ring, and an "RFR" monogram set in Barlow Condensed SemiBold — padded well
+// clear of the lanes. Glyph outlines are baked to vector paths (via fonttools)
+// so the mark renders identically on every device with no runtime font.
 // Authored in a 200x100 viewBox; scales crisply to any size.
-const LANES = [
-  { x: 11, y: 4, w: 178, h: 92, rx: 46, sw: 3 },
-  { x: 18, y: 11, w: 164, h: 78, rx: 39, sw: 1.4 },
-  { x: 25, y: 18, w: 150, h: 64, rx: 32, sw: 1.4 },
-  { x: 32, y: 25, w: 136, h: 50, rx: 25, sw: 1.4 },
-  { x: 39, y: 32, w: 122, h: 36, rx: 18, sw: 1.4 },
-  { x: 46, y: 39, w: 108, h: 22, rx: 11, sw: 1.4 },
+//
+// Barlow Condensed (c) 2017 The Barlow Project Authors, SIL Open Font License
+// 1.1 — see licenses/BarlowCondensed-OFL.txt.
+
+// White lane lines dividing the coral band (inset from the outer edge).
+const LANE_LINES = [
+  { x: 11, y: 11, w: 178, h: 78, rx: 39 },
+  { x: 17, y: 17, w: 166, h: 66, rx: 33 },
+  { x: 23, y: 23, w: 154, h: 54, rx: 27 },
 ];
 
-// R / F / R as single stroked paths (stem + bowl + leg / stem + two bars).
-const LETTERS = [
-  'M80 60 V40 H86 C92 40 92 50 86 50 H80 M80 50 L88 60',
-  'M96 60 V40 H104 M96 50 H102',
-  'M108 60 V40 H114 C120 40 120 50 114 50 H108 M108 50 L116 60',
-];
+// RFR outlines (Barlow Condensed SemiBold), fitted to the infield: cap height
+// 22, centered on x=100, baseline at y=61 (≈10 units of padding all around).
+const RFR_TRANSFORM = 'translate(78.99 61) scale(0.031429 -0.031429)';
+const RFR_PATH =
+  'M318.0 10 233.0 297Q231.0 301 228.0 301H175.0Q170.0 301 170.0 296V12Q170.0 7 166.5 3.5Q163.0 0 158.0 0H66.0Q61.0 0 57.5 3.5Q54.0 7 54.0 12V688Q54.0 693 57.5 696.5Q61.0 700 66.0 700H254.0Q307.0 700 347.5 674.5Q388.0 649 410.5 602.5Q433.0 556 433.0 496Q433.0 434 409.0 389.0Q385.0 344 342.0 321Q338.0 320 339.0 315L437.0 14Q438.0 12 438.0 9Q438.0 0 427.0 0H331.0Q321.0 0 318.0 10ZM170.0 595V396Q170.0 391 175.0 391H236.0Q272.0 391 294.5 419.0Q317.0 447 317.0 495Q317.0 543 294.5 571.5Q272.0 600 236.0 600H175.0Q170.0 600 170.0 595Z M851.0 600H636.0Q631.0 600 631.0 595V406Q631.0 401 636.0 401H763.0Q768.0 401 771.5 397.5Q775.0 394 775.0 389V312Q775.0 307 771.5 303.5Q768.0 300 763.0 300H636.0Q631.0 300 631.0 295V12Q631.0 7 627.5 3.5Q624.0 0 619.0 0H527.0Q522.0 0 518.5 3.5Q515.0 7 515.0 12V688Q515.0 693 518.5 696.5Q522.0 700 527.0 700H851.0Q856.0 700 859.5 696.5Q863.0 693 863.0 688V612Q863.0 607 859.5 603.5Q856.0 600 851.0 600Z M1194.0 10 1109.0 297Q1107.0 301 1104.0 301H1051.0Q1046.0 301 1046.0 296V12Q1046.0 7 1042.5 3.5Q1039.0 0 1034.0 0H942.0Q937.0 0 933.5 3.5Q930.0 7 930.0 12V688Q930.0 693 933.5 696.5Q937.0 700 942.0 700H1130.0Q1183.0 700 1223.5 674.5Q1264.0 649 1286.5 602.5Q1309.0 556 1309.0 496Q1309.0 434 1285.0 389.0Q1261.0 344 1218.0 321Q1214.0 320 1215.0 315L1313.0 14Q1314.0 12 1314.0 9Q1314.0 0 1303.0 0H1207.0Q1197.0 0 1194.0 10ZM1046.0 595V396Q1046.0 391 1051.0 391H1112.0Q1148.0 391 1170.5 419.0Q1193.0 447 1193.0 495Q1193.0 543 1170.5 571.5Q1148.0 600 1112.0 600H1051.0Q1046.0 600 1046.0 595Z';
 
 export function Logo({ size = 256 }: Props) {
   return (
     <Svg width={size} height={size / 2} viewBox="0 0 200 100">
-      {LANES.map((l, i) => (
+      {/* Track surface */}
+      <Rect x={5} y={5} width={190} height={90} rx={45} fill={colors.accent} />
+      {/* White lane lines */}
+      {LANE_LINES.map((l, i) => (
         <Rect
           key={i}
           x={l.x}
@@ -38,22 +44,15 @@ export function Logo({ size = 256 }: Props) {
           height={l.h}
           rx={l.rx}
           fill="none"
-          stroke={colors.text}
-          strokeWidth={l.sw}
+          stroke={colors.surface}
+          strokeWidth={1.3}
         />
       ))}
-      <Rect x={128} y={62} width={4} height={33} fill={colors.accent} />
-      {LETTERS.map((d, i) => (
-        <Path
-          key={i}
-          d={d}
-          fill="none"
-          stroke={colors.text}
-          strokeWidth={3.2}
-          strokeLinecap="round"
-          strokeLinejoin="round"
-        />
-      ))}
+      {/* Infield (matches app background) */}
+      <Rect x={29} y={29} width={142} height={42} rx={21} fill={colors.bg} />
+      <G transform={RFR_TRANSFORM}>
+        <Path d={RFR_PATH} fill={colors.text} />
+      </G>
     </Svg>
   );
 }
