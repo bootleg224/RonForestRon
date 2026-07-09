@@ -6,21 +6,35 @@ type Props = {
   size?: number;
 };
 
-// A top-down running track: a coral (track-surface) stadium band with white
-// lane lines, an infield that matches the app background so the track reads as
-// a ring, and an "RFR" monogram set in Barlow Condensed SemiBold — padded well
+// A top-down 4-lane running track: a coral stadium band (matching the app
+// accent) with white lane lines and rims, a finish line and staggered start
+// marks on the top straight, and an infield that matches the app background so
+// the track reads as a ring. "RFR" is set in Barlow Condensed SemiBold, padded
 // clear of the lanes. Glyph outlines are baked to vector paths (via fonttools)
 // so the mark renders identically on every device with no runtime font.
-// Authored in a 200x100 viewBox; scales crisply to any size.
+// Authored in a 200x100 viewBox.
 //
 // Barlow Condensed (c) 2017 The Barlow Project Authors, SIL Open Font License
 // 1.1 — see licenses/BarlowCondensed-OFL.txt.
 
-// White lane lines dividing the coral band (inset from the outer edge).
+const OUTER = { x: 5, y: 5, w: 190, h: 90, rx: 45 };
+const INFIELD = { x: 29, y: 29, w: 142, h: 42, rx: 21 };
+
+// Three white lines dividing the band into 4 lanes.
 const LANE_LINES = [
   { x: 11, y: 11, w: 178, h: 78, rx: 39 },
   { x: 17, y: 17, w: 166, h: 66, rx: 33 },
   { x: 23, y: 23, w: 154, h: 54, rx: 27 },
+];
+
+// Finish line across the top straight (left side). The innermost (bottom) lane
+// starts at the finish; the outer lanes stagger back, so the topmost lane
+// (position 4) is furthest from the finish. Mirrored about x=100 (finish left).
+const FINISH = { x: 67, y: 5, w: 3, h: 24 };
+const START_MARKS = [
+  { x: 92, y: 5, w: 2, h: 6 },
+  { x: 84, y: 11, w: 2, h: 6 },
+  { x: 76, y: 17, w: 2, h: 6 },
 ];
 
 // RFR outlines (Barlow Condensed SemiBold), fitted to the infield: cap height
@@ -32,8 +46,17 @@ const RFR_PATH =
 export function Logo({ size = 256 }: Props) {
   return (
     <Svg width={size} height={size / 2} viewBox="0 0 200 100">
-      {/* Track surface */}
-      <Rect x={5} y={5} width={190} height={90} rx={45} fill={colors.accent} />
+      {/* Track surface + white outer rim */}
+      <Rect
+        x={OUTER.x}
+        y={OUTER.y}
+        width={OUTER.w}
+        height={OUTER.h}
+        rx={OUTER.rx}
+        fill={colors.accent}
+        stroke={colors.surface}
+        strokeWidth={1.3}
+      />
       {/* White lane lines */}
       {LANE_LINES.map((l, i) => (
         <Rect
@@ -48,8 +71,23 @@ export function Logo({ size = 256 }: Props) {
           strokeWidth={1.3}
         />
       ))}
-      {/* Infield (matches app background) */}
-      <Rect x={29} y={29} width={142} height={42} rx={21} fill={colors.bg} />
+      {/* Staggered start marks */}
+      {START_MARKS.map((m, i) => (
+        <Rect key={i} x={m.x} y={m.y} width={m.w} height={m.h} fill={colors.surface} />
+      ))}
+      {/* Finish line */}
+      <Rect x={FINISH.x} y={FINISH.y} width={FINISH.w} height={FINISH.h} fill={colors.surface} />
+      {/* Infield (matches app background) + white inner rim */}
+      <Rect
+        x={INFIELD.x}
+        y={INFIELD.y}
+        width={INFIELD.w}
+        height={INFIELD.h}
+        rx={INFIELD.rx}
+        fill={colors.bg}
+        stroke={colors.surface}
+        strokeWidth={1.3}
+      />
       <G transform={RFR_TRANSFORM}>
         <Path d={RFR_PATH} fill={colors.text} />
       </G>
