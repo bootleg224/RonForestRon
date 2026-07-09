@@ -27,7 +27,8 @@
         "ACCESS_FINE_LOCATION",
         "ACCESS_BACKGROUND_LOCATION",
         "FOREGROUND_SERVICE",
-        "FOREGROUND_SERVICE_LOCATION"
+        "FOREGROUND_SERVICE_LOCATION",
+        "ACTIVITY_RECOGNITION"
       ],
       "predictiveBackGestureEnabled": false
     },
@@ -45,6 +46,12 @@
           "locationWhenInUsePermission": "Ron Forest Ron uses your location to track distance and pace during a run.",
           "isAndroidBackgroundLocationEnabled": true,
           "isAndroidForegroundServiceEnabled": true
+        }
+      ],
+      [
+        "expo-sensors",
+        {
+          "motionPermission": "Ron Forest Ron uses motion & fitness data to count your steps and keep distance accurate where GPS is weak, like tracks and tunnels."
         }
       ]
     ]

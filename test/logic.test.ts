@@ -88,6 +88,18 @@ test('current pace matches recent speed', () => {
   assert.ok(Math.abs(p - MILE_IN_METERS / 3) < 3, `current pace ${p}`);
 });
 
+test('current pace decays when stopped (window anchored to now)', () => {
+  const engine = new PaceEngine();
+  for (const s of straightRun(3, 60)) engine.addSample(s); // newest t = 60000
+  const moving = engine.currentPace(30, 60000)!;
+  const stopped = engine.currentPace(30, 75000); // 15s later, no new fixes
+  // A stop must make the recent pace slower (bigger number), never freeze.
+  assert.ok(
+    stopped === null || stopped > moving,
+    `moving ${moving} stopped ${stopped}`,
+  );
+});
+
 // ---- pace engine: GPS filtering ---------------------------------------------
 test('rejects low-accuracy fixes', () => {
   const engine = new PaceEngine();

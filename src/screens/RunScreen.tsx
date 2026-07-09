@@ -46,7 +46,11 @@ export function RunScreen({
 }: Props) {
   const check = stats.check;
   const status: PaceCheckStatus = check?.status ?? 'no_signal';
-  const s = STATE_STYLE[status];
+  const paused = stats.paused;
+  const s = paused
+    ? { color: colors.textDim, bg: colors.surface, word: 'PAUSED' }
+    : STATE_STYLE[status];
+  const pill = paused ? 'PAUSED' : pillText(status, s.word, check?.adjustPct ?? 0);
 
   // Time tile: counts down for a time goal, up otherwise.
   const timeLabel = plan.mode === 'time' ? 'Time left' : 'Time';
@@ -71,19 +75,17 @@ export function RunScreen({
       {/* Hero: current pace, color-coded by how you're doing right now. */}
       <View style={[styles.hero, { backgroundColor: s.bg }]}>
         <View style={[styles.pill, { borderColor: s.color }]}>
-          <Text style={[styles.pillText, { color: s.color }]}>
-            {pillText(status, s.word, check?.adjustPct ?? 0)}
-          </Text>
+          <Text style={[styles.pillText, { color: s.color }]}>{pill}</Text>
         </View>
         <Text style={styles.heroLabel}>CURRENT PACE</Text>
         <View style={styles.paceRow}>
           <Text style={[styles.pace, { color: s.color }]}>
-            {formatPace(stats.currentPace)}
+            {paused ? '--:--' : formatPace(stats.currentPace)}
           </Text>
           <Text style={[styles.paceUnit, { color: s.color }]}>/mi</Text>
         </View>
         <Text style={styles.reference}>
-          target {formatPace(targetSecPerMile)}/mi
+          {paused ? 'auto-paused · move to resume' : `target ${formatPace(targetSecPerMile)}/mi`}
         </Text>
       </View>
 

@@ -96,20 +96,25 @@ export class PaceEngine {
   }
 
   /**
-   * Pace over the most recent `windowSeconds` (sec/mile) — this is "how fast am
-   * I going right now". Returns null if there isn't enough recent movement.
+   * Pace over the most recent `windowSeconds` (sec/mile) — "how fast am I going
+   * right now". Pass `nowMs` (current active time) so the window ENDS at now, not
+   * at the last GPS fix: then if you stop, elapsed time keeps growing while
+   * distance stays flat, so the pace decays instead of freezing at your last
+   * moving value. Returns null once you've been stopped longer than the window.
    */
-  currentPace(windowSeconds: number): number | null {
+  currentPace(windowSeconds: number, nowMs?: number): number | null {
     if (this.points.length < 2) return null;
     const newest = this.points[this.points.length - 1];
-    const cutoff = newest.t - windowSeconds * 1000;
+    const end = nowMs ?? newest.t;
+    const cutoff = end - windowSeconds * 1000;
 
+    // start = earliest point still inside the window.
     let i = this.points.length - 1;
-    while (i > 0 && this.points[i].t > cutoff) i--;
+    while (i > 0 && this.points[i - 1].t >= cutoff) i--;
     const start = this.points[i];
 
     const dist = newest.cumDist - start.cumDist;
-    const dt = (newest.t - start.t) / 1000;
+    const dt = (end - start.t) / 1000;
     if (dist <= 0 || dt <= 0) return null;
     return (dt / dist) * MILE_IN_METERS;
   }
@@ -125,8 +130,13 @@ export class PaceEngine {
    * @param windowSec    how far back "current" looks (the coaching window)
    * @param deadbandPct  within +/- this % counts as on pace
    */
-  evaluate(targetSecPerMile: number, windowSec: number, deadbandPct = 4): PaceCheck {
-    const current = this.currentPace(windowSec);
+  evaluate(
+    targetSecPerMile: number,
+    windowSec: number,
+    nowMs?: number,
+    deadbandPct = 4,
+  ): PaceCheck {
+    const current = this.currentPace(windowSec, nowMs);
     if (current == null) {
       return {
         status: 'no_signal',

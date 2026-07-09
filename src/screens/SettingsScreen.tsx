@@ -1,4 +1,4 @@
-import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Pressable, ScrollView, StyleSheet, Switch, Text, View } from 'react-native';
 import { colors, radius, space } from '../theme';
 import type { Settings } from '../lib/db';
 
@@ -87,8 +87,25 @@ export function SettingsScreen({ settings, onChange, onBack }: Props) {
         />
       </View>
 
+      <View style={styles.card}>
+        <View style={styles.toggleRow}>
+          <Text style={styles.cardTitle}>Auto-pause</Text>
+          <Switch
+            value={settings.autoPause}
+            onValueChange={(v) => onChange({ autoPause: v })}
+            trackColor={{ true: colors.accent, false: colors.surfaceAlt }}
+            thumbColor={colors.text}
+            ios_backgroundColor={colors.surfaceAlt}
+          />
+        </View>
+        <Text style={styles.cardBody}>
+          Pauses the timer and pace tracking when you stop moving (e.g. a red
+          light) and resumes when you go again — so stops don’t skew your pace.
+        </Text>
+      </View>
+
       <Text style={styles.footnote}>
-        Recommended: 60s window, prompts every 30s.
+        Recommended: 60s window, prompts every 30s, auto-pause on.
       </Text>
     </ScrollView>
   );
@@ -122,6 +139,11 @@ const styles = StyleSheet.create({
     color: colors.text,
     fontSize: 18,
     fontWeight: '800',
+  },
+  toggleRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
   },
   cardBody: {
     color: colors.textDim,

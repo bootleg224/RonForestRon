@@ -28,7 +28,11 @@ export function SummaryScreen({ stats, onDone }: Props) {
           unit="/mi"
           accentColor={colors.accent}
         />
-        <StatTile label="GPS fixes" value={String(stats.gpsFixes)} />
+        {stats.steps > 0 ? (
+          <StatTile label="Steps" value={String(stats.steps)} />
+        ) : (
+          <StatTile label="GPS fixes" value={String(stats.gpsFixes)} />
+        )}
       </View>
 
       <Pressable

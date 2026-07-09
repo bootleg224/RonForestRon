@@ -88,11 +88,13 @@ export async function deleteRun(id: number): Promise<void> {
 export type Settings = {
   coachingWindowSec: number; // how far back "current pace" looks
   promptIntervalSec: number; // how often a spoken pace check fires
+  autoPause: boolean; // pause timer/tracking when stopped (e.g. a red light)
 };
 
 export const DEFAULT_SETTINGS: Settings = {
   coachingWindowSec: 60,
   promptIntervalSec: 30,
+  autoPause: true,
 };
 
 export async function getSettings(): Promise<Settings> {
@@ -101,7 +103,7 @@ export async function getSettings(): Promise<Settings> {
     `SELECT key, value FROM settings`,
   );
   const map = new Map(rows.map((r) => [r.key, r.value]));
-  const num = (k: keyof Settings) => {
+  const num = (k: 'coachingWindowSec' | 'promptIntervalSec') => {
     const v = map.get(k);
     const n = v == null ? NaN : Number(v);
     return Number.isFinite(n) ? n : DEFAULT_SETTINGS[k];
@@ -109,17 +111,21 @@ export async function getSettings(): Promise<Settings> {
   return {
     coachingWindowSec: num('coachingWindowSec'),
     promptIntervalSec: num('promptIntervalSec'),
+    autoPause: map.has('autoPause')
+      ? map.get('autoPause') === '1'
+      : DEFAULT_SETTINGS.autoPause,
   };
 }
 
 export async function saveSettings(patch: Partial<Settings>): Promise<void> {
   const db = await getDb();
   for (const [key, value] of Object.entries(patch)) {
+    const stored = typeof value === 'boolean' ? (value ? '1' : '0') : String(value);
     await db.runAsync(
       `INSERT INTO settings (key, value) VALUES (?, ?)
        ON CONFLICT(key) DO UPDATE SET value = excluded.value`,
       key,
-      String(value),
+      stored,
     );
   }
 }
