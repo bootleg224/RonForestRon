@@ -1,0 +1,52 @@
+{
+  "expo": {
+    "name": "Ron Forest Ron",
+    "slug": "RonForestRon",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "icon": "./assets/icon.png",
+    "userInterfaceStyle": "dark",
+    "scheme": "ronforestron",
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "com.ronforestron.app",
+      "infoPlist": {
+        "UIBackgroundModes": ["location", "audio"]
+      }
+    },
+    "android": {
+      "package": "com.ronforestron.app",
+      "adaptiveIcon": {
+        "backgroundColor": "#0B0F14",
+        "foregroundImage": "./assets/android-icon-foreground.png",
+        "backgroundImage": "./assets/android-icon-background.png",
+        "monochromeImage": "./assets/android-icon-monochrome.png"
+      },
+      "permissions": [
+        "ACCESS_COARSE_LOCATION",
+        "ACCESS_FINE_LOCATION",
+        "ACCESS_BACKGROUND_LOCATION",
+        "FOREGROUND_SERVICE",
+        "FOREGROUND_SERVICE_LOCATION"
+      ],
+      "predictiveBackGestureEnabled": false
+    },
+    "web": {
+      "favicon": "./assets/favicon.png"
+    },
+    "plugins": [
+      "expo-dev-client",
+      "expo-audio",
+      "expo-sqlite",
+      [
+        "expo-location",
+        {
+          "locationAlwaysAndWhenInUsePermission": "Ron Forest Ron uses your location to track distance and pace during a run, including while the screen is off.",
+          "locationWhenInUsePermission": "Ron Forest Ron uses your location to track distance and pace during a run.",
+          "isAndroidBackgroundLocationEnabled": true,
+          "isAndroidForegroundServiceEnabled": true
+        }
+      ]
+    ]
+  }
+}
