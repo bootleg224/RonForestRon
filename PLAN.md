@@ -52,6 +52,11 @@ src/screens/*               SetupScreen, RunScreen, SummaryScreen
 - Bug found + fixed during simulator testing: the run-screen timer rendered
   blank (a `flex: 1` StatTile layout issue); replaced with a dedicated timer
   card.
+- Bug found + fixed: pace-check prompts only fired on GPS fixes, so a sparse/
+  paused signal meant no prompt. Now on a fixed 30s timer (verified: a check
+  fired at 30s while standing still with zero GPS movement).
+- History link moved off the top-right corner (it collided with the Expo
+  dev-client's floating gear, which is dev-only and not app-controllable).
 
 ### Deep links (also handy for Siri Shortcuts later)
 `ronforestron://run?pace=<sec/mi>`, `://stop`, `://history`, `://setup`.

@@ -1,5 +1,5 @@
 import { Pressable, StyleSheet, Text, View } from 'react-native';
-import { colors } from '../theme';
+import { colors, radius, space } from '../theme';
 import type { RunStats } from '../hooks/useRunTracker';
 import { formatClock, formatMiles, formatPace } from '../lib/format';
 import { StatTile } from '../components/StatTile';
@@ -14,7 +14,7 @@ export function SummaryScreen({ stats, onDone }: Props) {
     <View style={styles.container}>
       <View style={styles.header}>
         <Text style={styles.title}>Nice run, Ron</Text>
-        <Text style={styles.subtitle}>Here's how it went.</Text>
+        <Text style={styles.subtitle}>Saved to your history.</Text>
       </View>
 
       <View style={styles.grid}>
@@ -22,11 +22,14 @@ export function SummaryScreen({ stats, onDone }: Props) {
         <StatTile label="Distance" value={formatMiles(stats.distanceMeters)} unit="mi" />
       </View>
       <View style={styles.grid}>
-        <StatTile label="Avg pace" value={formatPace(stats.avgPace)} unit="/mi" />
+        <StatTile
+          label="Avg pace"
+          value={formatPace(stats.avgPace)}
+          unit="/mi"
+          accentColor={colors.accent}
+        />
         <StatTile label="GPS fixes" value={String(stats.gpsFixes)} />
       </View>
-
-      <Text style={styles.note}>Saved to your run history.</Text>
 
       <Pressable
         onPress={onDone}
@@ -41,16 +44,16 @@ export function SummaryScreen({ stats, onDone }: Props) {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    padding: 24,
-    gap: 16,
+    padding: space.lg,
+    gap: space.md,
   },
   header: {
-    marginTop: 24,
-    marginBottom: 8,
+    marginTop: space.lg,
+    marginBottom: space.xs,
   },
   title: {
     color: colors.accent,
-    fontSize: 30,
+    fontSize: 32,
     fontWeight: '900',
   },
   subtitle: {
@@ -60,19 +63,13 @@ const styles = StyleSheet.create({
   },
   grid: {
     flexDirection: 'row',
-    gap: 12,
-  },
-  note: {
-    color: colors.textDim,
-    fontSize: 13,
-    textAlign: 'center',
-    marginTop: 8,
+    gap: space.sm,
   },
   button: {
     marginTop: 'auto',
     backgroundColor: colors.accent,
-    borderRadius: 999,
-    height: 84,
+    borderRadius: radius.pill,
+    height: 88,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -81,8 +78,8 @@ const styles = StyleSheet.create({
   },
   buttonText: {
     color: colors.bg,
-    fontSize: 24,
+    fontSize: 26,
     fontWeight: '900',
-    letterSpacing: 2,
+    letterSpacing: 2.5,
   },
 });

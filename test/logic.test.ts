@@ -81,11 +81,11 @@ test('trailing-mile pace unavailable before a full mile is covered', () => {
   assert.equal(engine.trailingPaceByDistance(MILE_IN_METERS), null);
 });
 
-test('trailing-time pace matches recent speed', () => {
+test('current pace matches recent speed', () => {
   const engine = new PaceEngine();
   for (const s of straightRun(3, 120)) engine.addSample(s);
-  const p = engine.trailingPaceByTime(60)!;
-  assert.ok(Math.abs(p - MILE_IN_METERS / 3) < 3, `trailing time pace ${p}`);
+  const p = engine.currentPace(60)!;
+  assert.ok(Math.abs(p - MILE_IN_METERS / 3) < 3, `current pace ${p}`);
 });
 
 // ---- pace engine: GPS filtering ---------------------------------------------
@@ -128,33 +128,53 @@ test('rejects sub-meter stationary jitter', () => {
   assert.equal(engine.totalDistance, 0);
 });
 
-// ---- pace engine: pace-check decision ---------------------------------------
-test('pace check: on track when at target', () => {
+// ---- pace engine: coaching decision (based on CURRENT pace, not average) -----
+const WINDOW = 60;
+
+test('evaluate: on pace when current matches target', () => {
   const engine = new PaceEngine();
   for (const s of straightRun(3, 120)) engine.addSample(s);
-  const target = MILE_IN_METERS / 3; // running exactly at target
-  const check = engine.paceCheck(target);
+  const check = engine.evaluate(MILE_IN_METERS / 3, WINDOW); // exactly at pace
   assert.equal(check.status, 'on_track');
+  assert.ok(check.spokenText.includes('On pace'), check.spokenText);
 });
 
-test('pace check: speed up when target is faster than current', () => {
+test('evaluate: speed up when target is faster than current', () => {
   const engine = new PaceEngine();
   for (const s of straightRun(3, 120)) engine.addSample(s); // ~8:56/mi
-  const check = engine.paceCheck(MILE_IN_METERS / 4); // target 4 m/s (faster)
+  const check = engine.evaluate(MILE_IN_METERS / 4, WINDOW); // target 4 m/s
   assert.equal(check.status, 'speed_up');
+  assert.ok(check.adjustPct > 0, `adjustPct ${check.adjustPct}`);
   assert.ok(check.spokenText.includes('Speed up'), check.spokenText);
 });
 
-test('pace check: ease up when ahead of target', () => {
+test('evaluate: reports the adjustment as a percentage', () => {
   const engine = new PaceEngine();
-  for (const s of straightRun(3, 120)) engine.addSample(s);
-  const check = engine.paceCheck(MILE_IN_METERS / 2.5); // target 2.5 m/s (slower)
-  assert.equal(check.status, 'ease_up');
+  for (const s of straightRun(3, 120)) engine.addSample(s); // ~536 s/mi
+  // target ~40 s/mi faster than current -> a modest single-digit-ish percent
+  const check = engine.evaluate(MILE_IN_METERS / 3 - 40, WINDOW);
+  assert.equal(check.status, 'speed_up');
+  assert.match(check.spokenText, /Speed up, about \d+ percent/);
 });
 
-test('pace check: no signal with too few points', () => {
+test('evaluate: ease up when ahead of target', () => {
+  const engine = new PaceEngine();
+  for (const s of straightRun(3, 120)) engine.addSample(s);
+  const check = engine.evaluate(MILE_IN_METERS / 2.5, WINDOW); // slower target
+  assert.equal(check.status, 'ease_up');
+  assert.ok(check.adjustPct < 0, `adjustPct ${check.adjustPct}`);
+});
+
+test('evaluate: within deadband counts as on pace', () => {
+  const engine = new PaceEngine();
+  for (const s of straightRun(3, 120)) engine.addSample(s); // ~536 s/mi
+  const check = engine.evaluate(MILE_IN_METERS / 3 + 5, WINDOW); // 5 s/mi off
+  assert.equal(check.status, 'on_track');
+});
+
+test('evaluate: no signal with too few points', () => {
   const engine = new PaceEngine();
   engine.addSample({ t: 0, lat: 0, lng: 0, accuracy: 5 });
-  const check = engine.paceCheck(540);
+  const check = engine.evaluate(540, WINDOW);
   assert.equal(check.status, 'no_signal');
 });

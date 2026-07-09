@@ -1,5 +1,5 @@
 import { StyleSheet, Text, View } from 'react-native';
-import { colors } from '../theme';
+import { colors, radius, space } from '../theme';
 
 type Props = {
   label: string;
@@ -13,9 +13,7 @@ export function StatTile({ label, value, unit, accentColor }: Props) {
     <View style={styles.tile}>
       <Text style={styles.label}>{label.toUpperCase()}</Text>
       <View style={styles.valueRow}>
-        <Text
-          style={[styles.value, accentColor ? { color: accentColor } : null]}
-        >
+        <Text style={[styles.value, accentColor ? { color: accentColor } : null]}>
           {value}
         </Text>
         {unit ? <Text style={styles.unit}>{unit}</Text> : null}
@@ -27,17 +25,17 @@ export function StatTile({ label, value, unit, accentColor }: Props) {
 const styles = StyleSheet.create({
   tile: {
     backgroundColor: colors.surface,
-    borderRadius: 16,
-    paddingVertical: 16,
-    paddingHorizontal: 18,
+    borderRadius: radius.md,
+    paddingVertical: space.md,
+    paddingHorizontal: space.md,
     flex: 1,
-    minWidth: 140,
+    minWidth: 130,
   },
   label: {
     color: colors.textDim,
-    fontSize: 12,
+    fontSize: 11,
     letterSpacing: 1.2,
-    fontWeight: '600',
+    fontWeight: '700',
     marginBottom: 6,
   },
   valueRow: {
@@ -46,15 +44,15 @@ const styles = StyleSheet.create({
   },
   value: {
     color: colors.text,
-    fontSize: 34,
+    fontSize: 32,
     fontWeight: '800',
     fontVariant: ['tabular-nums'],
   },
   unit: {
     color: colors.textDim,
-    fontSize: 16,
+    fontSize: 15,
     fontWeight: '600',
-    marginLeft: 6,
-    marginBottom: 8,
+    marginLeft: 5,
+    marginBottom: 6,
   },
 });

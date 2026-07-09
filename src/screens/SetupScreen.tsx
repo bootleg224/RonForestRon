@@ -1,82 +1,136 @@
 import { useState } from 'react';
-import {
-  Pressable,
-  StyleSheet,
-  Text,
-  TextInput,
-  View,
-} from 'react-native';
-import { colors } from '../theme';
-import { paceToSeconds } from '../lib/format';
+import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { colors, radius, space } from '../theme';
+import { PacePicker } from '../components/PacePicker';
+import { TimePicker, DistancePicker } from '../components/GoalPickers';
+import { PickerSheet } from '../components/PickerSheet';
+import { formatClock, formatPace } from '../lib/format';
+import type { RunMode } from '../hooks/useRunTracker';
 
 type Props = {
-  onStart: (targetSecPerMile: number) => void;
+  pace: number; // sec/mile
+  onPace: (v: number) => void;
+  mode: RunMode;
+  onMode: (m: RunMode) => void;
+  goalTimeSec: number;
+  onGoalTime: (s: number) => void;
+  goalDistanceMi: number;
+  onGoalDistance: (mi: number) => void;
+  onStart: () => void;
   onHistory: () => void;
+  onSettings: () => void;
 };
 
-export function SetupScreen({ onStart, onHistory }: Props) {
-  const [minutes, setMinutes] = useState('9');
-  const [seconds, setSeconds] = useState('00');
+const MODES: { key: RunMode; label: string; blurb: string }[] = [
+  { key: 'open', label: 'Open', blurb: 'Timer counts up. Stop when you’re done.' },
+  { key: 'time', label: 'Time', blurb: 'Counts down from your goal time, then auto-stops.' },
+  { key: 'distance', label: 'Distance', blurb: 'Counts up and auto-stops at your goal distance.' },
+];
 
-  const min = parseInt(minutes || '0', 10);
-  const sec = parseInt(seconds || '0', 10);
-  const valid = min > 0 && sec >= 0 && sec < 60 && min < 60;
-  const target = paceToSeconds(min, sec);
+type Sheet = 'pace' | 'goal' | null;
+
+export function SetupScreen(props: Props) {
+  const { pace, onPace, mode, onMode, goalTimeSec, onGoalTime } = props;
+  const { goalDistanceMi, onGoalDistance, onStart, onHistory, onSettings } = props;
+  const [sheet, setSheet] = useState<Sheet>(null);
+
+  const blurb = MODES.find((m) => m.key === mode)?.blurb ?? '';
+  const goalValue =
+    mode === 'time' ? formatClock(goalTimeSec) : `${goalDistanceMi.toFixed(1)} mi`;
 
   return (
     <View style={styles.container}>
-      <View style={styles.header}>
-        <View style={styles.headerRow}>
+      <ScrollView
+        contentContainerStyle={styles.scroll}
+        showsVerticalScrollIndicator={false}
+      >
+        <View style={styles.header}>
           <Text style={styles.title}>Ron Forest Ron</Text>
+          <Text style={styles.subtitle}>Dial your pace. Pick a goal. Go.</Text>
+        </View>
+
+        {/* Target pace — tap to open the wheel in a sheet. */}
+        <Pressable style={styles.field} onPress={() => setSheet('pace')}>
+          <View>
+            <Text style={styles.fieldLabel}>TARGET PACE</Text>
+            <Text style={styles.fieldValue}>
+              {formatPace(pace)}
+              <Text style={styles.fieldUnit}> /mi</Text>
+            </Text>
+          </View>
+          <Text style={styles.edit}>Edit</Text>
+        </Pressable>
+
+        {/* Run type. */}
+        <Text style={styles.sectionLabel}>RUN TYPE</Text>
+        <View style={styles.segmented}>
+          {MODES.map((m) => {
+            const active = m.key === mode;
+            return (
+              <Pressable
+                key={m.key}
+                onPress={() => onMode(m.key)}
+                style={[styles.segment, active && styles.segmentActive]}
+              >
+                <Text style={[styles.segmentText, active && styles.segmentTextActive]}>
+                  {m.label}
+                </Text>
+              </Pressable>
+            );
+          })}
+        </View>
+        <Text style={styles.blurb}>{blurb}</Text>
+
+        {/* Goal — tap to open the wheel in a sheet. */}
+        {mode !== 'open' && (
+          <Pressable style={[styles.field, styles.fieldSpaced]} onPress={() => setSheet('goal')}>
+            <View>
+              <Text style={styles.fieldLabel}>
+                {mode === 'time' ? 'GOAL TIME' : 'GOAL DISTANCE'}
+              </Text>
+              <Text style={styles.fieldValue}>{goalValue}</Text>
+            </View>
+            <Text style={styles.edit}>Edit</Text>
+          </Pressable>
+        )}
+      </ScrollView>
+
+      <View style={styles.footer}>
+        <Pressable
+          onPress={onStart}
+          style={({ pressed }) => [styles.go, pressed && styles.pressed]}
+        >
+          <Text style={styles.goText}>GO</Text>
+        </Pressable>
+        <View style={styles.links}>
+          <Pressable onPress={onSettings} hitSlop={12}>
+            <Text style={styles.link}>Settings</Text>
+          </Pressable>
+          <Text style={styles.dot}>·</Text>
           <Pressable onPress={onHistory} hitSlop={12}>
-            <Text style={styles.historyLink}>History ›</Text>
+            <Text style={styles.link}>Run history</Text>
           </Pressable>
         </View>
-        <Text style={styles.subtitle}>Set your target pace and run.</Text>
       </View>
 
-      <View style={styles.paceBlock}>
-        <Text style={styles.paceLabel}>TARGET PACE</Text>
-        <View style={styles.paceInputRow}>
-          <TextInput
-            style={styles.paceInput}
-            value={minutes}
-            onChangeText={(t) => setMinutes(t.replace(/[^0-9]/g, '').slice(0, 2))}
-            keyboardType="number-pad"
-            maxLength={2}
-            selectTextOnFocus
-          />
-          <Text style={styles.colon}>:</Text>
-          <TextInput
-            style={styles.paceInput}
-            value={seconds}
-            onChangeText={(t) => setSeconds(t.replace(/[^0-9]/g, '').slice(0, 2))}
-            keyboardType="number-pad"
-            maxLength={2}
-            selectTextOnFocus
-            onBlur={() => setSeconds((s) => (s || '0').padStart(2, '0'))}
-          />
-          <Text style={styles.perMile}>/ mile</Text>
-        </View>
-      </View>
-
-      <Pressable
-        onPress={() => valid && onStart(target)}
-        disabled={!valid}
-        style={({ pressed }) => [
-          styles.goButton,
-          !valid && styles.goDisabled,
-          pressed && valid && styles.goPressed,
-        ]}
+      <PickerSheet
+        visible={sheet === 'pace'}
+        title="Target pace"
+        onClose={() => setSheet(null)}
       >
-        <Text style={styles.goText}>GO</Text>
-      </Pressable>
-
-      {!valid ? (
-        <Text style={styles.hint}>Enter a pace like 9:00 (seconds 0–59).</Text>
-      ) : (
-        <Text style={styles.hint}>Prompts every 30s. Keep Spotify playing.</Text>
-      )}
+        <PacePicker value={pace} onChange={onPace} />
+      </PickerSheet>
+      <PickerSheet
+        visible={sheet === 'goal'}
+        title={mode === 'time' ? 'Goal time' : 'Goal distance'}
+        onClose={() => setSheet(null)}
+      >
+        {mode === 'time' ? (
+          <TimePicker value={goalTimeSec} onChange={onGoalTime} />
+        ) : (
+          <DistancePicker value={goalDistanceMi} onChange={onGoalDistance} />
+        )}
+      </PickerSheet>
     </View>
   );
 }
@@ -84,91 +138,134 @@ export function SetupScreen({ onStart, onHistory }: Props) {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    padding: 24,
-    justifyContent: 'space-between',
+  },
+  scroll: {
+    paddingHorizontal: space.lg,
+    paddingTop: space.lg,
+    paddingBottom: space.md,
   },
   header: {
-    marginTop: 24,
-  },
-  headerRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
+    marginBottom: space.lg,
   },
   title: {
     color: colors.accent,
     fontSize: 34,
     fontWeight: '900',
-  },
-  historyLink: {
-    color: colors.textDim,
-    fontSize: 15,
-    fontWeight: '700',
+    letterSpacing: -0.5,
   },
   subtitle: {
     color: colors.textDim,
     fontSize: 16,
     marginTop: 6,
   },
-  paceBlock: {
+  field: {
+    backgroundColor: colors.surface,
+    borderRadius: radius.md,
+    paddingVertical: space.md,
+    paddingHorizontal: space.md,
+    flexDirection: 'row',
+    justifyContent: 'space-between',
     alignItems: 'center',
   },
-  paceLabel: {
+  fieldSpaced: {
+    marginTop: space.lg,
+  },
+  fieldLabel: {
     color: colors.textDim,
-    fontSize: 13,
+    fontSize: 12,
     letterSpacing: 1.5,
     fontWeight: '700',
-    marginBottom: 12,
+    marginBottom: 4,
   },
-  paceInputRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  paceInput: {
-    backgroundColor: colors.surface,
+  fieldValue: {
     color: colors.text,
-    fontSize: 56,
-    fontWeight: '800',
+    fontSize: 40,
+    fontWeight: '900',
     fontVariant: ['tabular-nums'],
-    textAlign: 'center',
-    width: 100,
-    borderRadius: 16,
-    paddingVertical: 8,
   },
-  colon: {
-    color: colors.text,
-    fontSize: 56,
-    fontWeight: '800',
-    marginHorizontal: 8,
-  },
-  perMile: {
+  fieldUnit: {
     color: colors.textDim,
     fontSize: 18,
-    fontWeight: '600',
-    marginLeft: 14,
+    fontWeight: '700',
   },
-  goButton: {
+  edit: {
+    color: colors.accent,
+    fontSize: 16,
+    fontWeight: '800',
+  },
+  sectionLabel: {
+    color: colors.textDim,
+    fontSize: 12,
+    letterSpacing: 1.5,
+    fontWeight: '700',
+    marginTop: space.lg,
+    marginBottom: space.sm,
+  },
+  segmented: {
+    flexDirection: 'row',
+    backgroundColor: colors.bgElev,
+    borderRadius: radius.sm,
+    padding: 4,
+    gap: 4,
+  },
+  segment: {
+    flex: 1,
+    paddingVertical: 12,
+    borderRadius: radius.sm - 2,
+    alignItems: 'center',
+  },
+  segmentActive: {
     backgroundColor: colors.accent,
-    borderRadius: 999,
-    height: 96,
+  },
+  segmentText: {
+    color: colors.textDim,
+    fontSize: 15,
+    fontWeight: '700',
+  },
+  segmentTextActive: {
+    color: colors.bg,
+    fontWeight: '800',
+  },
+  blurb: {
+    color: colors.textFaint,
+    fontSize: 13,
+    marginTop: space.sm,
+  },
+  footer: {
+    paddingHorizontal: space.lg,
+    paddingBottom: space.sm,
+    paddingTop: space.sm,
+    gap: space.md,
+  },
+  go: {
+    backgroundColor: colors.accent,
+    borderRadius: radius.pill,
+    height: 88,
     alignItems: 'center',
     justifyContent: 'center',
   },
-  goDisabled: {
-    backgroundColor: colors.surfaceAlt,
-  },
-  goPressed: {
+  pressed: {
     opacity: 0.85,
   },
   goText: {
     color: colors.bg,
-    fontSize: 32,
+    fontSize: 30,
     fontWeight: '900',
-    letterSpacing: 2,
+    letterSpacing: 3,
   },
-  hint: {
+  links: {
+    flexDirection: 'row',
+    justifyContent: 'center',
+    alignItems: 'center',
+    gap: 10,
+  },
+  link: {
     color: colors.textDim,
-    textAlign: 'center',
-    fontSize: 13,
+    fontSize: 15,
+    fontWeight: '700',
+  },
+  dot: {
+    color: colors.textFaint,
+    fontSize: 15,
   },
 });

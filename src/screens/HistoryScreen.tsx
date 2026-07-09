@@ -7,7 +7,7 @@ import {
   Text,
   View,
 } from 'react-native';
-import { colors } from '../theme';
+import { colors, radius, space } from '../theme';
 import { listRuns, type SavedRun } from '../lib/db';
 import { formatClock, formatMiles, formatPace } from '../lib/format';
 
@@ -16,8 +16,7 @@ type Props = {
 };
 
 function formatDate(ms: number): string {
-  const d = new Date(ms);
-  return d.toLocaleDateString(undefined, {
+  return new Date(ms).toLocaleDateString(undefined, {
     month: 'short',
     day: 'numeric',
     hour: 'numeric',
@@ -36,12 +35,10 @@ export function HistoryScreen({ onBack }: Props) {
 
   return (
     <View style={styles.container}>
-      <View style={styles.header}>
-        <Pressable onPress={onBack} hitSlop={12}>
-          <Text style={styles.back}>‹ Back</Text>
-        </Pressable>
-        <Text style={styles.title}>Run history</Text>
-      </View>
+      <Pressable onPress={onBack} hitSlop={12}>
+        <Text style={styles.back}>‹ Back</Text>
+      </Pressable>
+      <Text style={styles.title}>Run history</Text>
 
       {runs == null ? (
         <ActivityIndicator color={colors.accent} style={{ marginTop: 40 }} />
@@ -51,21 +48,17 @@ export function HistoryScreen({ onBack }: Props) {
         <FlatList
           data={runs}
           keyExtractor={(r) => String(r.id)}
-          contentContainerStyle={{ gap: 10, paddingBottom: 24 }}
+          contentContainerStyle={{ gap: space.sm, paddingBottom: space.lg }}
           renderItem={({ item }) => (
             <View style={styles.row}>
               <View>
                 <Text style={styles.rowDate}>{formatDate(item.startedAt)}</Text>
-                <Text style={styles.rowSub}>
-                  target {formatPace(item.targetPace)} /mi
-                </Text>
+                <Text style={styles.rowSub}>target {formatPace(item.targetPace)}/mi</Text>
               </View>
               <View style={styles.rowStats}>
-                <Text style={styles.rowMain}>
-                  {formatMiles(item.distanceMeters)} mi
-                </Text>
+                <Text style={styles.rowMain}>{formatMiles(item.distanceMeters)} mi</Text>
                 <Text style={styles.rowSub}>
-                  {formatClock(item.elapsedSec)} · {formatPace(item.avgPace)} /mi
+                  {formatClock(item.elapsedSec)} · {formatPace(item.avgPace)}/mi
                 </Text>
               </View>
             </View>
@@ -79,22 +72,20 @@ export function HistoryScreen({ onBack }: Props) {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    padding: 20,
-  },
-  header: {
-    marginTop: 8,
-    marginBottom: 16,
+    padding: space.lg,
   },
   back: {
     color: colors.accent,
     fontSize: 16,
     fontWeight: '700',
-    marginBottom: 8,
+    marginTop: space.xs,
+    marginBottom: space.sm,
   },
   title: {
     color: colors.text,
-    fontSize: 28,
+    fontSize: 30,
     fontWeight: '900',
+    marginBottom: space.md,
   },
   empty: {
     color: colors.textDim,
@@ -104,8 +95,8 @@ const styles = StyleSheet.create({
   },
   row: {
     backgroundColor: colors.surface,
-    borderRadius: 14,
-    padding: 16,
+    borderRadius: radius.md,
+    padding: space.md,
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',

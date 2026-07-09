@@ -2,32 +2,38 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { activateKeepAwakeAsync, deactivateKeepAwake } from 'expo-keep-awake';
 import { PaceEngine, type PaceCheck, type GpsSample } from '../lib/paceEngine';
 import { MILE_IN_METERS } from '../theme';
-import {
-  configureAudioForPrompts,
-  speak,
-  stopSpeaking,
-} from '../lib/audio';
+import { configureAudioForPrompts, speak, stopSpeaking } from '../lib/audio';
 import {
   requestLocationPermissions,
   watchForeground,
   startBackgroundUpdates,
   stopBackgroundUpdates,
 } from '../lib/location';
-import { saveRun } from '../lib/db';
+import { saveRun, type Settings, DEFAULT_SETTINGS } from '../lib/db';
 
 const TICK_MS = 1000;
-const PACE_CHECK_INTERVAL_SEC = 30;
+const CURRENT_REFRESH_MS = 10000; // refresh the "current pace" estimate every 10s
 const KEEP_AWAKE_TAG = 'ron-forest-ron-run';
 
 export type RunState = 'idle' | 'starting' | 'running' | 'error';
 export type LocationSource = 'foreground' | 'background' | null;
 
+export type RunMode = 'open' | 'time' | 'distance';
+export type RunPlan = {
+  mode: RunMode;
+  goalSeconds: number; // used when mode === 'time'
+  goalMeters: number; // used when mode === 'distance'
+};
+
+export const OPEN_PLAN: RunPlan = { mode: 'open', goalSeconds: 0, goalMeters: 0 };
+
 export type RunStats = {
   elapsedSec: number;
   distanceMeters: number;
-  avgPace: number | null; // sec/mile
-  trailingMilePace: number | null; // sec/mile over last mile
-  lastCheck: PaceCheck | null;
+  avgPace: number | null; // sec/mile, whole run
+  currentPace: number | null; // sec/mile over the coaching window (the hero)
+  lastMilePace: number | null; // sec/mile over the most recent mile
+  check: PaceCheck | null; // live coaching evaluation (drives hero color)
   gpsFixes: number;
 };
 
@@ -35,12 +41,13 @@ const EMPTY_STATS: RunStats = {
   elapsedSec: 0,
   distanceMeters: 0,
   avgPace: null,
-  trailingMilePace: null,
-  lastCheck: null,
+  currentPace: null,
+  lastMilePace: null,
+  check: null,
   gpsFixes: 0,
 };
 
-export function useRunTracker() {
+export function useRunTracker(onAutoComplete?: (final: RunStats) => void) {
   const [state, setState] = useState<RunState>('idle');
   const [error, setError] = useState<string | null>(null);
   const [stats, setStats] = useState<RunStats>(EMPTY_STATS);
@@ -48,12 +55,20 @@ export function useRunTracker() {
 
   const engineRef = useRef(new PaceEngine());
   const targetRef = useRef(0);
+  const settingsRef = useRef<Settings>(DEFAULT_SETTINGS);
+  const planRef = useRef<RunPlan>(OPEN_PLAN);
   const startedAtRef = useRef(0);
-  const lastCheckAtSecRef = useRef(0);
   const fixesRef = useRef(0);
+  const finishingRef = useRef(false);
   const usedBackgroundRef = useRef(false);
   const unsubRef = useRef<(() => void) | null>(null);
   const tickRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const currentRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const checkRef = useRef<ReturnType<typeof setInterval> | null>(null);
+
+  // Keep the latest completion callback without re-creating start().
+  const onAutoCompleteRef = useRef(onAutoComplete);
+  onAutoCompleteRef.current = onAutoComplete;
 
   const elapsed = useCallback(
     () => (Date.now() - startedAtRef.current) / 1000,
@@ -61,8 +76,10 @@ export function useRunTracker() {
   );
 
   const teardown = useCallback(async () => {
-    if (tickRef.current) clearInterval(tickRef.current);
-    tickRef.current = null;
+    for (const r of [tickRef, currentRef, checkRef]) {
+      if (r.current) clearInterval(r.current);
+      r.current = null;
+    }
     unsubRef.current?.();
     unsubRef.current = null;
     if (usedBackgroundRef.current) {
@@ -73,41 +90,98 @@ export function useRunTracker() {
     deactivateKeepAwake(KEEP_AWAKE_TAG);
   }, []);
 
-  const recompute = useCallback(() => {
+  // Shared finish path for both the manual STOP and mode auto-stop.
+  const finalize = useCallback(async (): Promise<RunStats | null> => {
+    if (finishingRef.current) return null;
+    finishingRef.current = true;
+    await teardown();
+
     const engine = engineRef.current;
     const elapsedSec = elapsed();
-    setStats((prev) => ({
-      ...prev,
+    const final: RunStats = {
       elapsedSec,
       distanceMeters: engine.totalDistance,
       avgPace: engine.averagePace(elapsedSec),
-      trailingMilePace: engine.trailingPaceByDistance(MILE_IN_METERS),
+      currentPace: null,
+      lastMilePace: engine.trailingPaceByDistance(MILE_IN_METERS),
+      check: null,
+      gpsFixes: fixesRef.current,
+    };
+    setStats(final);
+    setSource(null);
+    setState('idle');
+
+    if (final.distanceMeters > 0 || final.elapsedSec > 5) {
+      saveRun({
+        startedAt: startedAtRef.current,
+        elapsedSec: final.elapsedSec,
+        distanceMeters: final.distanceMeters,
+        avgPace: final.avgPace,
+        targetPace: targetRef.current,
+        gpsFixes: final.gpsFixes,
+      }).catch(() => {});
+    }
+    return final;
+  }, [elapsed, teardown]);
+
+  // Auto-stop when a time/distance goal is met.
+  const maybeAutoStop = useCallback(
+    (elapsedSec: number, distanceMeters: number) => {
+      if (finishingRef.current) return;
+      const p = planRef.current;
+      const done =
+        (p.mode === 'time' && elapsedSec >= p.goalSeconds) ||
+        (p.mode === 'distance' && distanceMeters >= p.goalMeters);
+      if (!done) return;
+      void finalize().then((f) => {
+        if (!f) return;
+        speak(
+          p.mode === 'time'
+            ? 'Time reached. Great job, Ron.'
+            : 'Distance reached. Great job, Ron.',
+        );
+        onAutoCompleteRef.current?.(f);
+      });
+    },
+    [finalize],
+  );
+
+  // Base metrics on the 1s tick (and on each GPS fix): time, distance, average,
+  // last-mile. Current pace is refreshed separately every 10s.
+  const recompute = useCallback(() => {
+    const engine = engineRef.current;
+    const elapsedSec = elapsed();
+    const distanceMeters = engine.totalDistance;
+    setStats((prev) => ({
+      ...prev,
+      elapsedSec,
+      distanceMeters,
+      avgPace: engine.averagePace(elapsedSec),
+      lastMilePace: engine.trailingPaceByDistance(MILE_IN_METERS),
       gpsFixes: fixesRef.current,
     }));
-  }, [elapsed]);
+    maybeAutoStop(elapsedSec, distanceMeters);
+  }, [elapsed, maybeAutoStop]);
 
-  // Called for every GPS fix (foreground or background). Feeds the engine and
-  // fires a pace check when the interval has elapsed — driving checks off GPS
-  // fixes (not a timer) keeps them working when JS timers are throttled in the
-  // background.
+  // Current-pace estimate + coaching color. Held steady between 10s refreshes.
+  const refreshCurrent = useCallback(() => {
+    const check = engineRef.current.evaluate(
+      targetRef.current,
+      settingsRef.current.coachingWindowSec,
+    );
+    setStats((prev) => ({ ...prev, currentPace: check.currentPace, check }));
+  }, []);
+
   const ingest = useCallback(
     (sample: GpsSample) => {
       if (engineRef.current.addSample(sample)) fixesRef.current += 1;
-
-      const now = elapsed();
-      if (now - lastCheckAtSecRef.current >= PACE_CHECK_INTERVAL_SEC) {
-        lastCheckAtSecRef.current = now;
-        const check = engineRef.current.paceCheck(targetRef.current);
-        speak(check.spokenText);
-        setStats((prev) => ({ ...prev, lastCheck: check }));
-      }
       recompute();
     },
-    [elapsed, recompute],
+    [recompute],
   );
 
   const start = useCallback(
-    async (targetSecPerMile: number) => {
+    async (targetSecPerMile: number, settings: Settings, plan: RunPlan) => {
       setError(null);
       setState('starting');
       try {
@@ -122,13 +196,13 @@ export function useRunTracker() {
 
         engineRef.current.reset();
         fixesRef.current = 0;
+        finishingRef.current = false;
         targetRef.current = targetSecPerMile;
+        settingsRef.current = settings;
+        planRef.current = plan;
         startedAtRef.current = Date.now();
-        lastCheckAtSecRef.current = 0;
         setStats(EMPTY_STATS);
 
-        // Prefer background updates (keeps tracking with the screen off). Fall
-        // back to a foreground watch if background isn't granted or fails.
         let activeSource: LocationSource = null;
         if (perms.background) {
           try {
@@ -146,6 +220,16 @@ export function useRunTracker() {
         setSource(activeSource);
 
         tickRef.current = setInterval(recompute, TICK_MS);
+        currentRef.current = setInterval(refreshCurrent, CURRENT_REFRESH_MS);
+        // Spoken pace checks fire on a fixed timer, independent of GPS fixes.
+        checkRef.current = setInterval(() => {
+          const check = engineRef.current.evaluate(
+            targetRef.current,
+            settingsRef.current.coachingWindowSec,
+          );
+          speak(check.spokenText);
+        }, settings.promptIntervalSec * 1000);
+
         setState('running');
         speak('Run started. Good luck.');
       } catch (e) {
@@ -154,40 +238,13 @@ export function useRunTracker() {
         setError(e instanceof Error ? e.message : 'Failed to start run.');
       }
     },
-    [ingest, recompute, teardown],
+    [ingest, recompute, refreshCurrent, teardown],
   );
 
-  const stop = useCallback(async (): Promise<RunStats> => {
-    await teardown();
-    const engine = engineRef.current;
-    const elapsedSec = elapsed();
-    const final: RunStats = {
-      elapsedSec,
-      distanceMeters: engine.totalDistance,
-      avgPace: engine.averagePace(elapsedSec),
-      trailingMilePace: engine.trailingPaceByDistance(MILE_IN_METERS),
-      lastCheck: null,
-      gpsFixes: fixesRef.current,
-    };
-    setStats(final);
-    setSource(null);
-    setState('idle');
+  const stop = useCallback(async (): Promise<RunStats | null> => {
+    return finalize();
+  }, [finalize]);
 
-    // Persist the run (best-effort — a failed save shouldn't block the UI).
-    if (final.distanceMeters > 0 || final.elapsedSec > 5) {
-      saveRun({
-        startedAt: startedAtRef.current,
-        elapsedSec: final.elapsedSec,
-        distanceMeters: final.distanceMeters,
-        avgPace: final.avgPace,
-        targetPace: targetRef.current,
-        gpsFixes: final.gpsFixes,
-      }).catch(() => {});
-    }
-    return final;
-  }, [elapsed, teardown]);
-
-  // Safety net: tear down timers/subscription if the component unmounts.
   useEffect(() => {
     return () => {
       void teardown();

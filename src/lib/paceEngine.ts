@@ -23,16 +23,14 @@ const MAX_ACCURACY_M = 25;
 const MAX_SPEED_MPS = 8;
 // Ignore sub-meter wiggle so a stationary phone doesn't accumulate drift.
 const MIN_STEP_M = 1;
-// Window used for the every-30s "pace check" — short so advice is responsive.
-const PACE_CHECK_WINDOW_SEC = 60;
 
 export type PaceCheckStatus = 'on_track' | 'speed_up' | 'ease_up' | 'no_signal';
 
 export type PaceCheck = {
   status: PaceCheckStatus;
-  deltaPct: number; // +ve = currently slower than target
+  currentPace: number | null; // sec/mile over the coaching window
+  adjustPct: number; // +ve = must run this % FASTER to hit target (speed change)
   spokenText: string;
-  currentPace: number | null; // sec/mile over the check window
 };
 
 export class PaceEngine {
@@ -77,8 +75,7 @@ export class PaceEngine {
   /** Average pace across the whole run, in seconds per mile. */
   averagePace(elapsedSeconds: number): number | null {
     if (this._totalDistance <= 0 || elapsedSeconds <= 0) return null;
-    const secPerMeter = elapsedSeconds / this._totalDistance;
-    return secPerMeter * MILE_IN_METERS;
+    return (elapsedSeconds / this._totalDistance) * MILE_IN_METERS;
   }
 
   /** Pace over the most recent `windowMeters` of distance (sec/mile). */
@@ -86,9 +83,8 @@ export class PaceEngine {
     if (this.points.length < 2) return null;
     const newest = this.points[this.points.length - 1];
     const targetCum = newest.cumDist - windowMeters;
-    if (targetCum < 0) return null; // haven't covered a full window yet
+    if (targetCum < 0) return null;
 
-    // Walk back to the first point at/under the window boundary.
     let i = this.points.length - 1;
     while (i > 0 && this.points[i].cumDist > targetCum) i--;
     const start = this.points[i];
@@ -99,8 +95,11 @@ export class PaceEngine {
     return (dt / dist) * MILE_IN_METERS;
   }
 
-  /** Pace over the most recent `windowSeconds` (sec/mile). Drives pace checks. */
-  trailingPaceByTime(windowSeconds: number): number | null {
+  /**
+   * Pace over the most recent `windowSeconds` (sec/mile) — this is "how fast am
+   * I going right now". Returns null if there isn't enough recent movement.
+   */
+  currentPace(windowSeconds: number): number | null {
     if (this.points.length < 2) return null;
     const newest = this.points[this.points.length - 1];
     const cutoff = newest.t - windowSeconds * 1000;
@@ -116,45 +115,57 @@ export class PaceEngine {
   }
 
   /**
-   * Compare recent pace to the target and produce a spoken instruction.
-   * deadbandPct: treat anything within +/- this as "on track".
+   * Compare CURRENT pace (recent window) to the target and produce coaching to
+   * get back on pace *now* — deliberately not based on cumulative average, so a
+   * slow start never demands a sprint to "make up" time.
+   *
+   * The magnitude is a SPEED change percentage: "how much faster/slower do I
+   * need to run" — since speed = 1/pace, that's currentPace/targetPace - 1.
+   *
+   * @param windowSec    how far back "current" looks (the coaching window)
+   * @param deadbandPct  within +/- this % counts as on pace
    */
-  paceCheck(targetSecPerMile: number, deadbandPct = 4): PaceCheck {
-    const current = this.trailingPaceByTime(PACE_CHECK_WINDOW_SEC);
+  evaluate(targetSecPerMile: number, windowSec: number, deadbandPct = 4): PaceCheck {
+    const current = this.currentPace(windowSec);
     if (current == null) {
       return {
         status: 'no_signal',
-        deltaPct: 0,
         currentPace: null,
-        spokenText: 'Pace check. Not enough signal yet, keep running.',
+        adjustPct: 0,
+        spokenText: 'Pace check. Not moving yet — get going.',
       };
     }
 
-    // Positive delta => current pace number is larger => you are slower.
-    const deltaPct = ((current - targetSecPerMile) / targetSecPerMile) * 100;
-    const mag = Math.round(Math.abs(deltaPct) / 5) * 5; // snap to nearest 5%
+    // +ve => currently slower than target => must run this % faster.
+    const adjustPct = (current / targetSecPerMile - 1) * 100;
+    const mag = Math.round(Math.abs(adjustPct) / 5) * 5; // nearest 5%
+    const wayOff = mag > 40; // beyond ~40%: keep it qualitative
 
-    if (Math.abs(deltaPct) <= deadbandPct || mag === 0) {
+    if (Math.abs(adjustPct) <= deadbandPct || mag === 0) {
       return {
         status: 'on_track',
-        deltaPct,
         currentPace: current,
-        spokenText: 'Pace check. Good job, you are on track.',
+        adjustPct,
+        spokenText: 'Pace check. On pace — nice.',
       };
     }
-    if (deltaPct > 0) {
+    if (adjustPct > 0) {
       return {
         status: 'speed_up',
-        deltaPct,
         currentPace: current,
-        spokenText: `Pace check. Speed up about ${mag} percent.`,
+        adjustPct,
+        spokenText: wayOff
+          ? 'Pace check. Speed up — push hard.'
+          : `Pace check. Speed up, about ${mag} percent.`,
       };
     }
     return {
       status: 'ease_up',
-      deltaPct,
       currentPace: current,
-      spokenText: `Pace check. Ease up about ${mag} percent, you are ahead of pace.`,
+      adjustPct,
+      spokenText: wayOff
+        ? 'Pace check. Ease up — way ahead.'
+        : `Pace check. Ease up, about ${mag} percent.`,
     };
   }
 }

@@ -29,6 +29,10 @@ async function getDb(): Promise<SQLite.SQLiteDatabase> {
           target_pace REAL NOT NULL,
           gps_fixes INTEGER NOT NULL
         );
+        CREATE TABLE IF NOT EXISTS settings (
+          key TEXT PRIMARY KEY,
+          value TEXT NOT NULL
+        );
       `);
       return db;
     })();
@@ -78,4 +82,44 @@ export async function listRuns(limit = 50): Promise<SavedRun[]> {
 export async function deleteRun(id: number): Promise<void> {
   const db = await getDb();
   await db.runAsync(`DELETE FROM runs WHERE id = ?`, id);
+}
+
+// ---- Settings ---------------------------------------------------------------
+export type Settings = {
+  coachingWindowSec: number; // how far back "current pace" looks
+  promptIntervalSec: number; // how often a spoken pace check fires
+};
+
+export const DEFAULT_SETTINGS: Settings = {
+  coachingWindowSec: 60,
+  promptIntervalSec: 30,
+};
+
+export async function getSettings(): Promise<Settings> {
+  const db = await getDb();
+  const rows = await db.getAllAsync<{ key: string; value: string }>(
+    `SELECT key, value FROM settings`,
+  );
+  const map = new Map(rows.map((r) => [r.key, r.value]));
+  const num = (k: keyof Settings) => {
+    const v = map.get(k);
+    const n = v == null ? NaN : Number(v);
+    return Number.isFinite(n) ? n : DEFAULT_SETTINGS[k];
+  };
+  return {
+    coachingWindowSec: num('coachingWindowSec'),
+    promptIntervalSec: num('promptIntervalSec'),
+  };
+}
+
+export async function saveSettings(patch: Partial<Settings>): Promise<void> {
+  const db = await getDb();
+  for (const [key, value] of Object.entries(patch)) {
+    await db.runAsync(
+      `INSERT INTO settings (key, value) VALUES (?, ?)
+       ON CONFLICT(key) DO UPDATE SET value = excluded.value`,
+      key,
+      String(value),
+    );
+  }
 }
