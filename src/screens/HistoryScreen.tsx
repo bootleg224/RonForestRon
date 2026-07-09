@@ -9,10 +9,18 @@ import {
 } from 'react-native';
 import { colors, radius, space } from '../theme';
 import { listRuns, type SavedRun } from '../lib/db';
-import { formatClock, formatMiles, formatPace } from '../lib/format';
+import {
+  formatClock,
+  formatDistance,
+  formatPace,
+  distanceLabel,
+  paceLabel,
+  type Units,
+} from '../lib/format';
 
 type Props = {
   onBack: () => void;
+  units: Units;
 };
 
 function formatDate(ms: number): string {
@@ -24,7 +32,7 @@ function formatDate(ms: number): string {
   });
 }
 
-export function HistoryScreen({ onBack }: Props) {
+export function HistoryScreen({ onBack, units }: Props) {
   const [runs, setRuns] = useState<SavedRun[] | null>(null);
 
   useEffect(() => {
@@ -53,12 +61,16 @@ export function HistoryScreen({ onBack }: Props) {
             <View style={styles.row}>
               <View>
                 <Text style={styles.rowDate}>{formatDate(item.startedAt)}</Text>
-                <Text style={styles.rowSub}>target {formatPace(item.targetPace)}/mi</Text>
+                <Text style={styles.rowSub}>
+                  target {formatPace(item.targetPace, units)}{paceLabel(units)}
+                </Text>
               </View>
               <View style={styles.rowStats}>
-                <Text style={styles.rowMain}>{formatMiles(item.distanceMeters)} mi</Text>
+                <Text style={styles.rowMain}>
+                  {formatDistance(item.distanceMeters, units)} {distanceLabel(units)}
+                </Text>
                 <Text style={styles.rowSub}>
-                  {formatClock(item.elapsedSec)} · {formatPace(item.avgPace)}/mi
+                  {formatClock(item.elapsedSec)} · {formatPace(item.avgPace, units)}{paceLabel(units)}
                 </Text>
               </View>
             </View>

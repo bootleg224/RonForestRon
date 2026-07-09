@@ -1,4 +1,5 @@
 import * as SQLite from 'expo-sqlite';
+import type { Units } from './format';
 
 export type SavedRun = {
   id: number;
@@ -89,12 +90,14 @@ export type Settings = {
   coachingWindowSec: number; // how far back "current pace" looks
   promptIntervalSec: number; // how often a spoken pace check fires
   autoPause: boolean; // pause timer/tracking when stopped (e.g. a red light)
+  units: Units; // distance/pace units shown throughout the app
 };
 
 export const DEFAULT_SETTINGS: Settings = {
   coachingWindowSec: 60,
   promptIntervalSec: 30,
   autoPause: true,
+  units: 'mi',
 };
 
 export async function getSettings(): Promise<Settings> {
@@ -114,6 +117,7 @@ export async function getSettings(): Promise<Settings> {
     autoPause: map.has('autoPause')
       ? map.get('autoPause') === '1'
       : DEFAULT_SETTINGS.autoPause,
+    units: map.get('units') === 'km' ? 'km' : 'mi',
   };
 }
 

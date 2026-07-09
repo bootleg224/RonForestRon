@@ -1,8 +1,16 @@
 import { Pressable, StyleSheet, Text, View } from 'react-native';
-import { colors, radius, space, MILE_IN_METERS } from '../theme';
+import { colors, radius, space } from '../theme';
 import type { RunState, RunStats, RunPlan } from '../hooks/useRunTracker';
 import type { PaceCheckStatus } from '../lib/paceEngine';
-import { formatClock, formatMiles, formatPace } from '../lib/format';
+import {
+  formatClock,
+  formatDistance,
+  formatPace,
+  distanceLabel,
+  paceLabel,
+  unitMeters,
+  type Units,
+} from '../lib/format';
 import { StatTile } from '../components/StatTile';
 
 type Props = {
@@ -13,6 +21,7 @@ type Props = {
   plan: RunPlan;
   onStop: () => void;
   onTogglePause: () => void;
+  units: Units;
 };
 
 const STATE_STYLE: Record<
@@ -45,6 +54,7 @@ export function RunScreen({
   plan,
   onStop,
   onTogglePause,
+  units,
 }: Props) {
   const check = stats.check;
   const status: PaceCheckStatus = check?.status ?? 'no_signal';
@@ -65,8 +75,11 @@ export function RunScreen({
       : formatClock(stats.elapsedSec);
 
   // Distance tile: shows progress toward a distance goal.
-  const goalMi = plan.goalMeters / MILE_IN_METERS;
-  const distUnit = plan.mode === 'distance' ? `/ ${goalMi.toFixed(1)} mi` : 'mi';
+  const goalDist = plan.goalMeters / unitMeters(units);
+  const distUnit =
+    plan.mode === 'distance'
+      ? `/ ${goalDist.toFixed(1)} ${distanceLabel(units)}`
+      : distanceLabel(units);
 
   return (
     <View style={styles.container}>
@@ -85,12 +98,14 @@ export function RunScreen({
         <Text style={styles.heroLabel}>CURRENT PACE</Text>
         <View style={styles.paceRow}>
           <Text style={[styles.pace, { color: s.color }]}>
-            {formatPace(stats.currentPace)}
+            {formatPace(stats.currentPace, units)}
           </Text>
-          <Text style={[styles.paceUnit, { color: s.color }]}>/mi</Text>
+          <Text style={[styles.paceUnit, { color: s.color }]}>{paceLabel(units)}</Text>
         </View>
         <Text style={styles.reference}>
-          {paused ? pausedNote : `target ${formatPace(targetSecPerMile)}/mi`}
+          {paused
+            ? pausedNote
+            : `target ${formatPace(targetSecPerMile, units)}${paceLabel(units)}`}
         </Text>
       </View>
 
@@ -98,13 +113,21 @@ export function RunScreen({
         <StatTile label={timeLabel} value={timeValue} />
         <StatTile
           label="Distance"
-          value={formatMiles(stats.distanceMeters)}
+          value={formatDistance(stats.distanceMeters, units)}
           unit={distUnit}
         />
       </View>
       <View style={styles.grid}>
-        <StatTile label="Last mile" value={formatPace(stats.lastMilePace)} unit="/mi" />
-        <StatTile label="Avg pace" value={formatPace(stats.avgPace)} unit="/mi" />
+        <StatTile
+          label={units === 'km' ? 'Last km' : 'Last mile'}
+          value={formatPace(stats.lastMilePace, units)}
+          unit={paceLabel(units)}
+        />
+        <StatTile
+          label="Avg pace"
+          value={formatPace(stats.avgPace, units)}
+          unit={paceLabel(units)}
+        />
       </View>
 
       {error ? <Text style={styles.error}>{error}</Text> : null}

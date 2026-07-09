@@ -5,7 +5,7 @@ import { PaceEngine, type GpsSample } from '../src/lib/paceEngine';
 import {
   formatClock,
   formatPace,
-  formatMiles,
+  formatDistance,
   paceToSeconds,
 } from '../src/lib/format';
 import { MILE_IN_METERS } from '../src/theme';
@@ -50,11 +50,16 @@ test('formatPace', () => {
   assert.equal(formatPace(536.4), '8:56');
   assert.equal(formatPace(null), '--:--');
   assert.equal(formatPace(0), '--:--');
+  // Explicit miles matches the default; km converts sec/mile -> sec/km.
+  assert.equal(formatPace(540, 'mi'), '9:00');
+  assert.equal(formatPace(540, 'km'), '5:36'); // 9:00/mi ≈ 5:36/km
 });
 
-test('formatMiles + paceToSeconds', () => {
-  assert.equal(formatMiles(MILE_IN_METERS), '1.00');
-  assert.equal(formatMiles(MILE_IN_METERS / 2), '0.50');
+test('formatDistance + paceToSeconds', () => {
+  assert.equal(formatDistance(MILE_IN_METERS), '1.00');
+  assert.equal(formatDistance(MILE_IN_METERS / 2), '0.50');
+  assert.equal(formatDistance(1000, 'km'), '1.00');
+  assert.equal(formatDistance(5000, 'km'), '5.00');
   assert.equal(paceToSeconds(9, 0), 540);
   assert.equal(paceToSeconds(8, 30), 510);
 });

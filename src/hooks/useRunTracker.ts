@@ -3,6 +3,7 @@ import { activateKeepAwakeAsync, deactivateKeepAwake } from 'expo-keep-awake';
 import { PaceEngine, type PaceCheck, type GpsSample } from '../lib/paceEngine';
 import { haversineMeters } from '../lib/geo';
 import { MILE_IN_METERS } from '../theme';
+import { unitMeters } from '../lib/format';
 import { configureAudioForPrompts, speak, stopSpeaking } from '../lib/audio';
 import {
   requestLocationPermissions,
@@ -212,7 +213,7 @@ export function useRunTracker(onAutoComplete?: (final: RunStats) => void) {
       distanceMeters: dist,
       avgPace: dist > 0 && elapsedSec > 0 ? (elapsedSec / dist) * MILE_IN_METERS : null,
       currentPace: null,
-      lastMilePace: engine.trailingPaceByDistance(MILE_IN_METERS),
+      lastMilePace: engine.trailingPaceByDistance(unitMeters(settingsRef.current.units)),
       check: null,
       gpsFixes: fixesRef.current,
       steps: stepsRef.current,
@@ -276,7 +277,7 @@ export function useRunTracker(onAutoComplete?: (final: RunStats) => void) {
     setStats((prev) => ({
       ...prev,
       avgPace: dist > 0 && elapsedSec > 0 ? (elapsedSec / dist) * MILE_IN_METERS : null,
-      lastMilePace: engine.trailingPaceByDistance(MILE_IN_METERS),
+      lastMilePace: engine.trailingPaceByDistance(unitMeters(settingsRef.current.units)),
     }));
   }, [activeElapsedMs, distanceNow]);
 

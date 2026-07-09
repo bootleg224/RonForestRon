@@ -125,6 +125,7 @@ export default function App() {
           onStart={() => beginRun(pace)}
           onHistory={() => setScreen('history')}
           onSettings={() => setScreen('settings')}
+          units={settings.units}
         />
       )}
       {screen === 'run' && (
@@ -136,12 +137,19 @@ export default function App() {
           plan={runPlan}
           onStop={handleStop}
           onTogglePause={togglePause}
+          units={settings.units}
         />
       )}
       {screen === 'summary' && finalStats && (
-        <SummaryScreen stats={finalStats} onDone={() => setScreen('setup')} />
+        <SummaryScreen
+          stats={finalStats}
+          onDone={() => setScreen('setup')}
+          units={settings.units}
+        />
       )}
-      {screen === 'history' && <HistoryScreen onBack={() => setScreen('setup')} />}
+      {screen === 'history' && (
+        <HistoryScreen onBack={() => setScreen('setup')} units={settings.units} />
+      )}
       {screen === 'settings' && (
         <SettingsScreen
           settings={settings}

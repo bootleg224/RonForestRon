@@ -1,10 +1,25 @@
 import { useState } from 'react';
-import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import {
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  Text,
+  View,
+  useWindowDimensions,
+} from 'react-native';
 import { colors, radius, space } from '../theme';
+import { Logo } from '../components/Logo';
 import { PacePicker } from '../components/PacePicker';
 import { TimePicker, DistancePicker } from '../components/GoalPickers';
 import { PickerSheet } from '../components/PickerSheet';
-import { formatClock, formatPace } from '../lib/format';
+import {
+  formatClock,
+  formatPace,
+  paceLabel,
+  distanceLabel,
+  milesToUnit,
+  type Units,
+} from '../lib/format';
 import type { RunMode } from '../hooks/useRunTracker';
 
 type Props = {
@@ -19,6 +34,7 @@ type Props = {
   onStart: () => void;
   onHistory: () => void;
   onSettings: () => void;
+  units: Units;
 };
 
 const MODES: { key: RunMode; label: string; blurb: string }[] = [
@@ -30,13 +46,17 @@ const MODES: { key: RunMode; label: string; blurb: string }[] = [
 type Sheet = 'pace' | 'goal' | null;
 
 export function SetupScreen(props: Props) {
-  const { pace, onPace, mode, onMode, goalTimeSec, onGoalTime } = props;
+  const { pace, onPace, mode, onMode, goalTimeSec, onGoalTime, units } = props;
   const { goalDistanceMi, onGoalDistance, onStart, onHistory, onSettings } = props;
   const [sheet, setSheet] = useState<Sheet>(null);
+  const { width } = useWindowDimensions();
+  const logoSize = Math.min(280, width - space.lg * 2);
 
   const blurb = MODES.find((m) => m.key === mode)?.blurb ?? '';
   const goalValue =
-    mode === 'time' ? formatClock(goalTimeSec) : `${goalDistanceMi.toFixed(1)} mi`;
+    mode === 'time'
+      ? formatClock(goalTimeSec)
+      : `${milesToUnit(goalDistanceMi, units).toFixed(1)} ${distanceLabel(units)}`;
 
   return (
     <View style={styles.container}>
@@ -45,8 +65,7 @@ export function SetupScreen(props: Props) {
         showsVerticalScrollIndicator={false}
       >
         <View style={styles.header}>
-          <Text style={styles.title}>Ron Forest Ron</Text>
-          <Text style={styles.subtitle}>Dial your pace. Pick a goal. Go.</Text>
+          <Logo size={logoSize} />
         </View>
 
         {/* Target pace — tap to open the wheel in a sheet. */}
@@ -54,8 +73,8 @@ export function SetupScreen(props: Props) {
           <View>
             <Text style={styles.fieldLabel}>TARGET PACE</Text>
             <Text style={styles.fieldValue}>
-              {formatPace(pace)}
-              <Text style={styles.fieldUnit}> /mi</Text>
+              {formatPace(pace, units)}
+              <Text style={styles.fieldUnit}> {paceLabel(units)}</Text>
             </Text>
           </View>
           <Text style={styles.edit}>Edit</Text>
@@ -118,7 +137,7 @@ export function SetupScreen(props: Props) {
         title="Target pace"
         onClose={() => setSheet(null)}
       >
-        <PacePicker value={pace} onChange={onPace} />
+        <PacePicker value={pace} onChange={onPace} units={units} />
       </PickerSheet>
       <PickerSheet
         visible={sheet === 'goal'}
@@ -128,7 +147,7 @@ export function SetupScreen(props: Props) {
         {mode === 'time' ? (
           <TimePicker value={goalTimeSec} onChange={onGoalTime} />
         ) : (
-          <DistancePicker value={goalDistanceMi} onChange={onGoalDistance} />
+          <DistancePicker value={goalDistanceMi} onChange={onGoalDistance} units={units} />
         )}
       </PickerSheet>
     </View>
@@ -145,18 +164,9 @@ const styles = StyleSheet.create({
     paddingBottom: space.md,
   },
   header: {
-    marginBottom: space.lg,
-  },
-  title: {
-    color: colors.accent,
-    fontSize: 34,
-    fontWeight: '900',
-    letterSpacing: -0.5,
-  },
-  subtitle: {
-    color: colors.textDim,
-    fontSize: 16,
-    marginTop: 6,
+    alignItems: 'center',
+    marginTop: space.md,
+    marginBottom: space.xl,
   },
   field: {
     backgroundColor: colors.surface,
@@ -181,13 +191,13 @@ const styles = StyleSheet.create({
   },
   fieldValue: {
     color: colors.text,
-    fontSize: 40,
+    fontSize: 46,
     fontWeight: '900',
     fontVariant: ['tabular-nums'],
   },
   fieldUnit: {
     color: colors.textDim,
-    fontSize: 18,
+    fontSize: 20,
     fontWeight: '700',
   },
   edit: {

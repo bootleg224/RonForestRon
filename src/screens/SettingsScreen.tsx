@@ -1,6 +1,7 @@
 import { Pressable, ScrollView, StyleSheet, Switch, Text, View } from 'react-native';
 import { colors, radius, space } from '../theme';
 import type { Settings } from '../lib/db';
+import type { Units } from '../lib/format';
 
 type Props = {
   settings: Settings;
@@ -8,29 +9,34 @@ type Props = {
   onBack: () => void;
 };
 
-type Option = { label: string; value: number };
+type Option<T extends string | number> = { label: string; value: T };
 
-const WINDOW_OPTIONS: Option[] = [
+const UNIT_OPTIONS: Option<Units>[] = [
+  { label: 'Miles', value: 'mi' },
+  { label: 'Kilometers', value: 'km' },
+];
+
+const WINDOW_OPTIONS: Option<number>[] = [
   { label: '30s', value: 30 },
   { label: '60s', value: 60 },
   { label: '90s', value: 90 },
   { label: '2 min', value: 120 },
 ];
 
-const PROMPT_OPTIONS: Option[] = [
+const PROMPT_OPTIONS: Option<number>[] = [
   { label: '15s', value: 15 },
   { label: '30s', value: 30 },
   { label: '60s', value: 60 },
 ];
 
-function Segmented({
+function Segmented<T extends string | number>({
   options,
   selected,
   onSelect,
 }: {
-  options: Option[];
-  selected: number;
-  onSelect: (v: number) => void;
+  options: Option<T>[];
+  selected: T;
+  onSelect: (v: T) => void;
 }) {
   return (
     <View style={styles.segmented}>
@@ -38,7 +44,7 @@ function Segmented({
         const active = o.value === selected;
         return (
           <Pressable
-            key={o.value}
+            key={String(o.value)}
             onPress={() => onSelect(o.value)}
             style={[styles.segment, active && styles.segmentActive]}
           >
@@ -59,6 +65,18 @@ export function SettingsScreen({ settings, onChange, onBack }: Props) {
         <Text style={styles.back}>‹ Back</Text>
       </Pressable>
       <Text style={styles.title}>Settings</Text>
+
+      <View style={styles.card}>
+        <Text style={styles.cardTitle}>Units</Text>
+        <Text style={styles.cardBody}>
+          Distance and pace shown throughout the app.
+        </Text>
+        <Segmented
+          options={UNIT_OPTIONS}
+          selected={settings.units}
+          onSelect={(v) => onChange({ units: v })}
+        />
+      </View>
 
       <View style={styles.card}>
         <Text style={styles.cardTitle}>Coaching window</Text>
@@ -158,20 +176,21 @@ const styles = StyleSheet.create({
   },
   segmented: {
     flexDirection: 'row',
-    backgroundColor: colors.bg,
-    borderRadius: radius.sm,
-    padding: 4,
-    gap: 4,
+    gap: space.xs,
     marginTop: space.xs,
   },
   segment: {
     flex: 1,
     paddingVertical: 12,
-    borderRadius: radius.sm - 2,
+    borderRadius: radius.sm,
+    borderWidth: 1,
+    borderColor: colors.hairline,
+    backgroundColor: colors.surface,
     alignItems: 'center',
   },
   segmentActive: {
     backgroundColor: colors.accent,
+    borderColor: colors.accent,
   },
   segmentText: {
     color: colors.textDim,

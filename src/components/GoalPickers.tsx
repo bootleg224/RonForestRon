@@ -1,8 +1,9 @@
 import { DualWheel } from './DualWheel';
+import { milesToUnit, unitToMiles, type Units } from '../lib/format';
 
 const GOAL_MIN = Array.from({ length: 180 }, (_, i) => i + 1); // 1..180 min
 const SEC_STEP = Array.from({ length: 12 }, (_, i) => i * 5); // 0,5..55
-const WHOLE_MILES = Array.from({ length: 51 }, (_, i) => i); // 0..50
+const WHOLE_DIST = Array.from({ length: 51 }, (_, i) => i); // 0..50 (mi or km)
 const TENTHS = Array.from({ length: 10 }, (_, i) => i); // .0..​.9
 
 type TimeProps = {
@@ -35,28 +36,32 @@ export function TimePicker({ value, onChange }: TimeProps) {
 }
 
 type DistanceProps = {
-  value: number; // goal distance in miles
+  value: number; // goal distance in miles (canonical)
   onChange: (miles: number) => void;
+  units: Units;
 };
 
-/** Goal-distance picker: whole . tenths miles. */
-export function DistancePicker({ value, onChange }: DistanceProps) {
-  const whole = Math.floor(value);
-  const tenth = Math.round((value - whole) * 10);
+/** Goal-distance picker: whole . tenths, shown in the chosen unit but always
+ *  emitting canonical miles. */
+export function DistancePicker({ value, onChange, units }: DistanceProps) {
+  const shown = milesToUnit(value, units);
+  const whole = Math.floor(shown);
+  const tenth = Math.round((shown - whole) * 10);
+  const emit = (w: number, t: number) => onChange(unitToMiles(w + t / 10, units));
 
   return (
     <DualWheel
       separator="."
-      unit="goal distance (miles)"
+      unit={`goal distance (${units === 'km' ? 'kilometers' : 'miles'})`}
       left={{
-        values: WHOLE_MILES,
+        values: WHOLE_DIST,
         value: whole,
-        onChange: (w) => onChange(w + tenth / 10),
+        onChange: (w) => emit(w, tenth),
       }}
       right={{
         values: TENTHS,
         value: tenth,
-        onChange: (t) => onChange(whole + t / 10),
+        onChange: (t) => emit(whole, t),
       }}
     />
   );
